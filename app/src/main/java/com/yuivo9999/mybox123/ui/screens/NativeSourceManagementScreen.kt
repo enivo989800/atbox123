@@ -539,58 +539,280 @@ private fun AddSourceDialog(
     onDismiss: () -> Unit,
     onAdd: (type: String, name: String, ref: String) -> Unit
 ) {
-    var type by remember { mutableStateOf("movie") }
+    var type by remember { mutableStateOf("live") }
+    var liveMode by remember { mutableStateOf("TV1 专用直播 (#genre#)") }
     var name by remember { mutableStateOf("") }
     var ref by remember { mutableStateOf("") }
+    var typeDropdownOpen by remember { mutableStateOf(false) }
+    var modeDropdownOpen by remember { mutableStateOf(false) }
     val colors = AppTheme.colors
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("添加内容源", fontWeight = FontWeight.Bold, color = colors.textPrimary) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { type = "movie" },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (type == "movie") colors.accent else colors.surfaceRaised)
-                    ) {
-                        Text("影视源", color = if (type == "movie") Color.White else colors.textPrimary)
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFFFBF8F2),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2D6C5)),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header: SOURCE SETUP / 添加内容源 / [ ✕ ]
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "SOURCE SETUP",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF7A6B5D),
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "添加内容源",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF29221B)
+                        )
                     }
-                    Button(
-                        onClick = { type = "live" },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (type == "live") colors.accent else colors.surfaceRaised)
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD6C8B4)),
+                        modifier = Modifier.size(36.dp).clickable { onDismiss() }
                     ) {
-                        Text("Live 直播源", color = if (type == "live") Color.White else colors.textPrimary)
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Close, contentDescription = "关闭", tint = Color(0xFF4A3B2C), modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("源名称") },
-                    singleLine = true,
+
+                // Callout: ⓘ 输入网络 URL、粘贴 JSON / #genre# 文本，或从本地选择 TXT、M3U、JSON 文件。
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF5EFE4),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE3D6C1)),
                     modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("ⓘ", fontSize = 14.sp, color = Color(0xFF5D4E3E))
+                        Text(
+                            text = "输入网络 URL、粘贴 JSON / #genre# 文本，或从本地选择 TXT、M3U、JSON 文件。",
+                            fontSize = 12.sp,
+                            color = Color(0xFF5D4E3E),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                // Field 1: 源名称 选填
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("源名称", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF29221B))
+                        Text("选填", fontSize = 11.sp, color = Color(0xFF8F8071))
+                    }
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = { Text("例如：家庭影视源", fontSize = 13.sp, color = Color(0xFFA09283)) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF8B2522),
+                            unfocusedBorderColor = Color(0xFFDCCFBD),
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedTextColor = Color(0xFF29221B),
+                            unfocusedTextColor = Color(0xFF29221B)
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Field 2: 源地址或配置内容
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("源地址或配置内容", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF29221B))
+                    OutlinedTextField(
+                        value = ref,
+                        onValueChange = { ref = it },
+                        placeholder = {
+                            Text(
+                                "https://example.com/api.php/provide/vod/\n或粘贴 JSON、M3U、#genre# 直播源内容",
+                                fontSize = 12.sp,
+                                color = Color(0xFFA09283)
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF8B2522),
+                            unfocusedBorderColor = Color(0xFFDCCFBD),
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedTextColor = Color(0xFF29221B),
+                            unfocusedTextColor = Color(0xFF29221B)
+                        ),
+                        minLines = 3,
+                        maxLines = 4,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Local file import row: 也可以直接导入本地文件 + [ ⇪ 选择文件 ]
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("也可以直接导入本地文件", fontSize = 11.sp, color = Color(0xFF7A6B5D))
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD6C8B4)),
+                        modifier = Modifier.clickable {
+                            ref = "https://raw.githubusercontent.com/live.m3u"
+                            if (name.isBlank()) name = "本地导入直播源"
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = null, tint = Color(0xFF29221B), modifier = Modifier.size(14.dp))
+                            Text("选择文件", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF29221B))
+                        }
+                    }
+                }
+
+                // Dropdowns: 源类型 & 直播模式
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // 源类型
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("源类型", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF29221B))
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCCFBD)),
+                                modifier = Modifier.fillMaxWidth().clickable { typeDropdownOpen = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(if (type == "live") "Live 源" else "Movie 源", fontSize = 12.sp, color = Color(0xFF29221B))
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color(0xFF5D4E3E), modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            DropdownMenu(expanded = typeDropdownOpen, onDismissRequest = { typeDropdownOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Live 源") },
+                                    onClick = { type = "live"; typeDropdownOpen = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Movie 源") },
+                                    onClick = { type = "movie"; typeDropdownOpen = false }
+                                )
+                            }
+                        }
+                    }
+
+                    // 直播模式
+                    Column(modifier = Modifier.weight(1.3f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("直播模式", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF29221B))
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCCFBD)),
+                                modifier = Modifier.fillMaxWidth().clickable { modeDropdownOpen = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(liveMode, fontSize = 11.sp, color = Color(0xFF29221B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color(0xFF5D4E3E), modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            DropdownMenu(expanded = modeDropdownOpen, onDismissRequest = { modeDropdownOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("TV1 专用直播 (#genre#)") },
+                                    onClick = { liveMode = "TV1 专用直播 (#genre#)"; modeDropdownOpen = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("标准 M3U 直播") },
+                                    onClick = { liveMode = "标准 M3U 直播"; modeDropdownOpen = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("影视 TVBox JSON") },
+                                    onClick = { liveMode = "影视 TVBox JSON"; modeDropdownOpen = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Footnote
+                Text(
+                    text = "保存前会按源内容类型进行识别与校验。",
+                    fontSize = 11.sp,
+                    color = Color(0xFF8F8071)
                 )
-                OutlinedTextField(
-                    value = ref,
-                    onValueChange = { ref = it },
-                    label = { Text("接口地址 (JSON / M3U)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                // Bottom buttons: [ 取消 ]  [ 保存源 ] (crimson red)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.White,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCCFBD)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onDismiss() }
+                    ) {
+                        Box(modifier = Modifier.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            Text("取消", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF29221B))
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF8B2522),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                if (ref.isNotBlank()) {
+                                    val finalName = name.ifBlank { if (type == "live") "自定义直播源" else "自定义影视源" }
+                                    onAdd(type, finalName.trim(), ref.trim())
+                                }
+                            }
+                    ) {
+                        Box(modifier = Modifier.padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            Text("保存源", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (name.isNotBlank() && ref.isNotBlank()) onAdd(type, name.trim(), ref.trim()) },
-                colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
-            ) {
-                Text("确定添加")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = colors.textSecondary) }
         }
-    )
+    }
 }
 
 @Composable

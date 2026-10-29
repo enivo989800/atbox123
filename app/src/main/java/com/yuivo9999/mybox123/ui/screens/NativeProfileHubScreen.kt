@@ -118,7 +118,9 @@ fun NativeProfileHubScreen(
                         currentThemeId = currentThemeId,
                         onThemeChanged = onThemeChanged
                     )
-                    ProfileSubpage.REPOSITORIES -> NativeRepositoryManagementScreen()
+                    ProfileSubpage.REPOSITORIES -> NativeRepositoryManagementScreen(
+                        onBack = { onSelectedPageNameChange(ProfileSubpage.MAIN.name) }
+                    )
                     ProfileSubpage.DATA -> NativeDataManagementScreen()
                     ProfileSubpage.ABOUT -> NativeAboutScreen()
                     ProfileSubpage.HISTORY -> NativePlaybackHistoryScreen()
