@@ -1,0 +1,147 @@
+name: Build & Publish Release APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: '发布版本号 Tag (例如: v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+      release_title:
+        description: '发布页面标题 Title'
+        required: false
+        default: 'AtBox 影视与电视直播 原生版正式发布'
+      is_prerelease:
+        description: '是否为预发布版本 (Prerelease)'
+        required: false
+        type: boolean
+        default: false
+      is_draft:
+        description: '是否为草稿 (Draft)'
+        required: false
+        type: boolean
+        default: false
+
+# 必须具备 contents: write 权限以创建 GitHub Releases 并上传 APK
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    name: 编译正式版 APK 并发布 Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码 (Checkout)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Java JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: 配置 Gradle 构建工具
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 配置构建签名密钥
+        run: |
+          mkdir -p ~/.android
+          if [ -f debug.keystore.base64 ]; then
+            base64 -d debug.keystore.base64 > ~/.android/debug.keystore || true
+          fi
+
+      - name: 赋予 gradlew 可执行权限
+        run: chmod +x gradlew
+
+      - name: 编译正式版 APK (assembleRelease)
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: 计算版本标签与命名准备
+        id: prep
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v1.0.${{ github.run_number }}"
+          fi
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_OUTPUT
+
+          mkdir -p release-dist
+          # 找到 Gradle 输出的正式版 APK
+          RELEASE_APK=$(find app/build/outputs/apk/release/ -name "*.apk" -type f | head -n 1)
+          if [ -z "$RELEASE_APK" ]; then
+            echo "错误: 未找到 release APK!"
+            exit 1
+          fi
+
+          echo "Found release apk: $RELEASE_APK"
+          # 制作标准命名的 APK 文件
+          cp "$RELEASE_APK" release-dist/atbox123-release.apk
+          cp "$RELEASE_APK" "release-dist/atbox123-${TAG}-release.apk"
+
+          # 计算 SHA-256 和 MD5 校验和
+          cd release-dist
+          sha256sum atbox123-release.apk > sha256sum.txt
+          md5sum atbox123-release.apk > md5sum.txt
+          cat sha256sum.txt
+          cat md5sum.txt
+          cd ..
+
+      - name: 上传构建产物至 Actions Artifacts (备份)
+        uses: actions/upload-artifact@v4
+        with:
+          name: atbox123-release-apk
+          path: release-dist/*
+          retention-days: 30
+
+      - name: 自动发布到 GitHub Releases 页面
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ github.event.inputs.release_title || format('AtBox 原生正式版 {0}', env.RELEASE_TAG) }}
+          draft: ${{ github.event.inputs.is_draft || false }}
+          prerelease: ${{ github.event.inputs.is_prerelease || false }}
+          generate_release_notes: true
+          body: |
+            ### 📺 AtBox (MyBox) 安卓原生正式版发布
+
+            本版本为自动通过 GitHub Actions 构建的正式版 APK (Release APK)。
+
+            #### 🚀 下载安装
+            - 推荐下载：**`atbox123-release.apk`** 或 **`atbox123-${{ env.RELEASE_TAG }}-release.apk`**
+            - 适用设备：安卓手机、Android 平板、Android TV / 电视盒子
+
+            #### 📦 功能特性
+            - 📺 **电视直播**：央视、卫视、多线路自适应切换，沉浸式播放与全屏快捷选台
+            - 🎬 **影视点播**：海量 VOD 片库聚合，集数切换与智能选线
+            - 📁 **源管理与扩展**：支持多源合并、JSON/M3U/genre# 快速配置导入与单源同步
+            - 🎨 **多套原生主题**：桑田、竹影等主题实时切换
+            - 📱 **纯原生体验**：基于 Jetpack Compose 与 ExoPlayer 硬件解码打造
+
+            #### 🔐 校验信息 (Checksums)
+            请核对校验文件 `sha256sum.txt` 以确保安装包完整性。
+          files: |
+            release-dist/atbox123-release.apk
+            release-dist/atbox123-${{ env.RELEASE_TAG }}-release.apk
+            release-dist/sha256sum.txt
+            release-dist/md5sum.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
