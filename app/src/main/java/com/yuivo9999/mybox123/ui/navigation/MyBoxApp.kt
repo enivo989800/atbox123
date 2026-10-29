@@ -12,12 +12,13 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,27 +29,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import com.yuivo9999.mybox123.data.storage.FavoriteRecord
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yuivo9999.mybox123.app.AppDestination
 import com.yuivo9999.mybox123.app.AppViewModel
-import com.yuivo9999.mybox123.ui.screens.NativeMigrationScreen
-import com.yuivo9999.mybox123.ui.screens.NativeLiveBrowseScreen
-import com.yuivo9999.mybox123.ui.screens.NativeHomeScreen
+import com.yuivo9999.mybox123.data.movie.NativeMovieItem
+import com.yuivo9999.mybox123.data.storage.FavoriteRecord
 import com.yuivo9999.mybox123.ui.screens.NativeFavoritesScreen
+import com.yuivo9999.mybox123.ui.screens.NativeHomeScreen
+import com.yuivo9999.mybox123.ui.screens.NativeLiveBrowseScreen
+import com.yuivo9999.mybox123.ui.screens.NativeMigrationScreen
 import com.yuivo9999.mybox123.ui.screens.NativeMovieCatalogScreen
 import com.yuivo9999.mybox123.ui.screens.NativeMoviePlaybackScreen
-import com.yuivo9999.mybox123.data.movie.NativeMovieItem
 import com.yuivo9999.mybox123.ui.screens.NativeProfileHubScreen
 import com.yuivo9999.mybox123.ui.screens.ProfileSubpage
-import com.yuivo9999.mybox123.ui.theme.MyBoxBackground
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurface
+import com.yuivo9999.mybox123.ui.theme.AppTheme
 
 @Composable
 fun MyBoxApp(
@@ -56,6 +56,7 @@ fun MyBoxApp(
     appViewModel: AppViewModel = viewModel(),
 ) {
     val uiState by appViewModel.uiState.collectAsStateWithLifecycle()
+    val colors = AppTheme.colors
     val context = LocalContext.current
     var lastBackPressAt by remember { mutableLongStateOf(0L) }
     var pendingMovieFavoriteJson by remember { mutableStateOf<String?>(null) }
@@ -64,7 +65,7 @@ fun MyBoxApp(
     var pendingMoviePlayback by rememberSaveable { mutableStateOf<Pair<NativeMovieItem, String?>?>(null) }
     var restoreHomeHistoryAfterDetail by rememberSaveable { mutableStateOf(false) }
     var restoreHomeAfterContentPreviewDetail by rememberSaveable { mutableStateOf(false) }
-    var profileSubpageName by rememberSaveable { mutableStateOf(ProfileSubpage.SOURCES.name) }
+    var profileSubpageName by rememberSaveable { mutableStateOf(ProfileSubpage.MAIN.name) }
 
     BackHandler {
         if (uiState.destination != AppDestination.HOME) {
@@ -89,17 +90,17 @@ fun MyBoxApp(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = MyBoxBackground,
+        containerColor = colors.background,
         bottomBar = {
             if (!isFullScreen) {
                 Surface(
-                    color = MyBoxSurface,
+                    color = colors.surface,
                     tonalElevation = 0.dp,
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, com.yuivo9999.mybox123.ui.theme.MyBoxBorder),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border.copy(alpha = 0.6f)),
                 ) {
                     NavigationBar(
-                        containerColor = MyBoxSurface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        containerColor = colors.surface,
+                        contentColor = colors.textPrimary,
                         tonalElevation = 0.dp,
                     ) {
                         AppDestination.tabEntries.forEach { destination ->
@@ -124,12 +125,12 @@ fun MyBoxApp(
                                 },
                                 label = { Text(destination.label) },
                                 alwaysShowLabel = true,
-                                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                    selectedIconColor = com.yuivo9999.mybox123.ui.theme.MyBoxGold,
-                                    selectedTextColor = com.yuivo9999.mybox123.ui.theme.MyBoxGold,
-                                    indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                    unselectedIconColor = com.yuivo9999.mybox123.ui.theme.MyBoxTextMuted,
-                                    unselectedTextColor = com.yuivo9999.mybox123.ui.theme.MyBoxTextMuted,
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = colors.accent,
+                                    selectedTextColor = colors.accent,
+                                    indicatorColor = Color.Transparent,
+                                    unselectedIconColor = colors.textMuted,
+                                    unselectedTextColor = colors.textMuted,
                                 )
                             )
                         }
@@ -179,10 +180,13 @@ fun MyBoxApp(
                 AppDestination.PROFILE -> NativeProfileHubScreen(
                     selectedPageName = profileSubpageName,
                     onSelectedPageNameChange = { profileSubpageName = it },
+                    currentThemeId = uiState.themeId,
+                    onThemeChanged = { appViewModel.setTheme(it) },
                 )
                 AppDestination.LIVE -> NativeLiveBrowseScreen(
                     favoriteNavigationJson = pendingLiveFavoriteJson,
                     onFavoriteNavigationConsumed = { pendingLiveFavoriteJson = null },
+                    onNavigateTab = { appViewModel.navigateTo(it) },
                 )
                 AppDestination.MOVIES -> NativeMovieCatalogScreen(
                     favoriteNavigationJson = pendingMovieFavoriteJson,
@@ -218,6 +222,7 @@ fun MyBoxApp(
                         pendingMoviePlayback = null
                         appViewModel.navigateHome()
                     },
+                    onNavigateDestination = { appViewModel.navigateTo(it) },
                 )
                 AppDestination.FAVORITES -> NativeFavoritesScreen(
                     onOpenFavorite = { record: FavoriteRecord ->
@@ -238,12 +243,12 @@ fun MyBoxApp(
 }
 
 private fun destinationIcon(destination: AppDestination): ImageVector = when (destination) {
-    AppDestination.HOME -> Icons.Filled.Home
-    AppDestination.LIVE -> Icons.Filled.PlayArrow
-    AppDestination.MOVIES -> Icons.Filled.Movie
-    AppDestination.MOVIE_PLAYBACK -> Icons.Filled.VideoLibrary
-    AppDestination.FAVORITES -> Icons.Filled.FavoriteBorder
-    AppDestination.PROFILE -> Icons.Filled.Person
+    AppDestination.HOME -> Icons.Default.Home
+    AppDestination.MOVIES -> Icons.Default.Movie
+    AppDestination.LIVE -> Icons.Default.Radio
+    AppDestination.FAVORITES -> Icons.Default.FavoriteBorder
+    AppDestination.PROFILE -> Icons.Default.Person
+    AppDestination.MOVIE_PLAYBACK -> Icons.Default.VideoLibrary
 }
 
 private const val EXIT_CONFIRMATION_WINDOW_MS = 2_000L

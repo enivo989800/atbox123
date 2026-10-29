@@ -3,53 +3,23 @@ package com.yuivo9999.mybox123.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,24 +30,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yuivo9999.mybox123.MyBoxApplication
 import com.yuivo9999.mybox123.app.AppDestination
-import com.yuivo9999.mybox123.data.movie.NativeMovieCategory
 import com.yuivo9999.mybox123.data.movie.NativeMovieItem
-import com.yuivo9999.mybox123.ui.theme.MyBoxAmber
-import com.yuivo9999.mybox123.ui.theme.MyBoxBackground
-import com.yuivo9999.mybox123.ui.theme.MyBoxBorder
-import com.yuivo9999.mybox123.ui.theme.MyBoxGold
-import com.yuivo9999.mybox123.ui.theme.MyBoxGoldLight
-import com.yuivo9999.mybox123.ui.theme.MyBoxOutline
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurface
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurfaceRaised
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextMuted
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextPrimary
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextSecondary
+import com.yuivo9999.mybox123.ui.theme.AppTheme
 
-/**
- * 首页：对标前端 HomePage.jsx，纯原生 Jetpack Compose 构建
- * 包含：精选顶部栏、焦点 Hero Banner、继续观看、内容专区快速筛选、热门精选 3 列海报网格与各分类横向画廊
- */
 @Composable
 fun NativeHomeScreen(
     onNavigate: (AppDestination) -> Unit,
@@ -90,6 +45,7 @@ fun NativeHomeScreen(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as MyBoxApplication
+    val colors = AppTheme.colors
     val factory = remember(application) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -135,14 +91,14 @@ fun NativeHomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MyBoxBackground),
+            .background(colors.background),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 84.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // 1. 精致顶部栏：左侧标题与来源，右侧快速切源胶囊与搜索
+        // 1. Top Header
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().statusBarsPadding(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -154,13 +110,13 @@ fun NativeHomeScreen(
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
-                            tint = MyBoxGold,
+                            tint = colors.accent,
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
                             text = "TVBOX 4K 影音",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MyBoxTextSecondary,
+                            color = colors.textSecondary,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
@@ -169,7 +125,7 @@ fun NativeHomeScreen(
                         text = "精选首页",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MyBoxTextPrimary
+                        color = colors.textPrimary
                     )
                 }
 
@@ -177,12 +133,12 @@ fun NativeHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // MovieSourcePill 切源胶囊
+                    // MovieSourcePill
                     Box {
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = MyBoxSurfaceRaised,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxOutline),
+                            color = colors.surfaceRaised,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
                             modifier = Modifier.clickable { sourceMenuExpanded = true }
                         ) {
                             Row(
@@ -194,12 +150,12 @@ fun NativeHomeScreen(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(MyBoxGold)
+                                        .background(colors.accent)
                                 )
                                 Text(
                                     text = state.sourceName?.take(6) ?: "内置源",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MyBoxTextPrimary,
+                                    color = colors.textPrimary,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -221,18 +177,18 @@ fun NativeHomeScreen(
                         }
                     }
 
-                    // 全源搜索按钮
+                    // Search Button
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = MyBoxSurfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxOutline),
+                        color = colors.surfaceRaised,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
                         modifier = Modifier.clickable { onNavigate(AppDestination.MOVIES) }
                     ) {
                         Box(modifier = Modifier.padding(8.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "搜索",
-                                tint = MyBoxTextPrimary,
+                                tint = colors.textPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -241,7 +197,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 2. 焦点精选 Hero Banner
+        // 2. Hero Banner
         if (heroMovie != null) {
             item {
                 HomeHeroBanner(
@@ -252,7 +208,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 3. 继续观看 Row
+        // 3. Continue Watching
         if (state.continueWatching.isNotEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -260,7 +216,7 @@ fun NativeHomeScreen(
                         text = "继续观看",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MyBoxTextPrimary
+                        color = colors.textPrimary
                     )
 
                     LazyRow(
@@ -278,7 +234,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 4. 分类快捷筛选栏 (内容专区)
+        // 4. Category Pills
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -290,12 +246,12 @@ fun NativeHomeScreen(
                         text = "内容专区",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MyBoxTextPrimary
+                        color = colors.textPrimary
                     )
                     Text(
                         text = "影视库全览 >",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MyBoxGold,
+                        color = colors.accent,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.clickable { onNavigate(AppDestination.MOVIES) }
                     )
@@ -309,15 +265,15 @@ fun NativeHomeScreen(
                         val isSelected = activeCategory == category.id
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) Color(0xFFEEF1F5) else MyBoxSurfaceRaised,
-                            border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                            color = if (isSelected) colors.accent else colors.surfaceRaised,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) colors.accent else colors.border),
                             modifier = Modifier.clickable { previewViewModel.selectCategory(category.id) }
                         ) {
                             Text(
                                 text = category.name,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) Color(0xFF101217) else MyBoxTextSecondary,
+                                color = if (isSelected) Color.White else colors.textPrimary,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                             )
                         }
@@ -326,7 +282,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 5. 热门精选 3 列海报网格 (6张卡片)
+        // 5. Hot Movies Grid
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -338,12 +294,12 @@ fun NativeHomeScreen(
                         text = "🔥 热门精选",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MyBoxTextPrimary
+                        color = colors.textPrimary
                     )
                     Text(
                         text = "${filteredMovies.size} 部内容",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MyBoxTextMuted
+                        color = colors.textMuted
                     )
                 }
 
@@ -354,7 +310,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 6. 🎬 院线与高清电影 横向画廊
+        // 6. 院线与高清电影
         if (movieSectionList.isNotEmpty()) {
             item {
                 MovieSectionRow(
@@ -367,7 +323,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 7. 📺 同步热播剧集 横向画廊
+        // 7. 同步热播剧集
         if (seriesSectionList.isNotEmpty()) {
             item {
                 MovieSectionRow(
@@ -380,7 +336,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 8. 🎨 热血与国创动漫 横向画廊
+        // 8. 动漫
         if (animeSectionList.isNotEmpty()) {
             item {
                 MovieSectionRow(
@@ -393,7 +349,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 9. 🎤 欢笑综艺娱乐
+        // 9. 综艺
         if (varietySectionList.isNotEmpty()) {
             item {
                 MovieSectionRow(
@@ -406,7 +362,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 10. ⚡ 爆款热门短剧
+        // 10. 短剧
         if (shortDramaList.isNotEmpty()) {
             item {
                 MovieSectionRow(
@@ -419,7 +375,7 @@ fun NativeHomeScreen(
             }
         }
 
-        // 11. 更多内容推荐 (剩余网格)
+        // 11. 更多内容推荐
         if (filteredMovies.size > 6) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -427,7 +383,7 @@ fun NativeHomeScreen(
                         text = "✨ 更多内容推荐",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MyBoxTextPrimary
+                        color = colors.textPrimary
                     )
 
                     MovieThreeColumnGrid(
@@ -440,7 +396,6 @@ fun NativeHomeScreen(
     }
 }
 
-/** 焦点 Banner 推荐卡片 */
 @Composable
 fun HomeHeroBanner(
     movie: NativeMovieItem,
@@ -448,10 +403,11 @@ fun HomeHeroBanner(
     onDetail: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = AppTheme.colors
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MyBoxSurfaceRaised,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+        color = colors.surfaceRaised,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
         modifier = modifier.fillMaxWidth()
     ) {
         Box(
@@ -459,7 +415,6 @@ fun HomeHeroBanner(
                 .fillMaxWidth()
                 .height(230.dp)
         ) {
-            // 背景海报/壁纸
             val imgUrl = movie.toJson().optString("backdrop").ifBlank { movie.poster }
             NativePosterImage(
                 url = imgUrl,
@@ -468,7 +423,7 @@ fun HomeHeroBanner(
                     .clip(RoundedCornerShape(20.dp))
             )
 
-            // 渐变蒙层
+            // Gradient Overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -476,14 +431,13 @@ fun HomeHeroBanner(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color(0x9907080B),
-                                Color(0xF207080B)
+                                colors.background.copy(alpha = 0.6f),
+                                colors.background.copy(alpha = 0.95f)
                             )
                         )
                     )
             )
 
-            // 焦点文字与按钮
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -494,12 +448,12 @@ fun HomeHeroBanner(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("● 今日焦点", style = MaterialTheme.typography.labelSmall, color = MyBoxGold, fontWeight = FontWeight.Bold)
-                    Text("·", style = MaterialTheme.typography.labelSmall, color = MyBoxTextSecondary)
-                    Text(movie.category.ifBlank { "4K超清" }, style = MaterialTheme.typography.labelSmall, color = MyBoxTextSecondary)
+                    Text("● 今日焦点", style = MaterialTheme.typography.labelSmall, color = colors.accent, fontWeight = FontWeight.Bold)
+                    Text("·", style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+                    Text(movie.category.ifBlank { "4K超清" }, style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
                     if (movie.description.isNotBlank()) {
-                        Text("·", style = MaterialTheme.typography.labelSmall, color = MyBoxTextSecondary)
-                        Text("4K超清国语", style = MaterialTheme.typography.labelSmall, color = MyBoxGoldLight)
+                        Text("·", style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+                        Text("4K超清国语", style = MaterialTheme.typography.labelSmall, color = colors.gold)
                     }
                 }
 
@@ -508,7 +462,7 @@ fun HomeHeroBanner(
                     text = movie.title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -518,7 +472,7 @@ fun HomeHeroBanner(
                     Text(
                         text = movie.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MyBoxTextSecondary,
+                        color = colors.textSecondary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -530,8 +484,8 @@ fun HomeHeroBanner(
                         onClick = onPlay,
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFF2F4F8),
-                            contentColor = Color(0xFF101217)
+                            containerColor = colors.accent,
+                            contentColor = Color.White
                         ),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
@@ -543,8 +497,8 @@ fun HomeHeroBanner(
                     OutlinedButton(
                         onClick = onDetail,
                         shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxOutline),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.textPrimary),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Text("查看详情", fontSize = 13.sp)
@@ -555,17 +509,17 @@ fun HomeHeroBanner(
     }
 }
 
-/** 继续观看横向滑动卡片 */
 @Composable
 fun ContinueWatchingCard(
     item: ContinueWatchingItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = AppTheme.colors
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = MyBoxSurfaceRaised,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+        color = colors.surfaceRaised,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
         modifier = modifier
             .width(200.dp)
             .clickable(onClick = onClick)
@@ -588,7 +542,7 @@ fun ContinueWatchingCard(
                     text = item.movie.title,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary,
+                    color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -596,7 +550,7 @@ fun ContinueWatchingCard(
                 Text(
                     text = "${item.episodeTitle} · ${item.positionMinutes} 分钟",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MyBoxTextSecondary,
+                    color = colors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -605,7 +559,6 @@ fun ContinueWatchingCard(
     }
 }
 
-/** 3列网格海报展示 */
 @Composable
 fun MovieThreeColumnGrid(
     movies: List<NativeMovieItem>,
@@ -627,7 +580,6 @@ fun MovieThreeColumnGrid(
                         HomePosterCard(movie = movie, onClick = { onMovieClick(movie) })
                     }
                 }
-                // Fill empty slots if last row has less than 3
                 repeat(3 - rowItems.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -636,7 +588,6 @@ fun MovieThreeColumnGrid(
     }
 }
 
-/** 横向滚动电影行 */
 @Composable
 fun MovieSectionRow(
     title: String,
@@ -646,6 +597,7 @@ fun MovieSectionRow(
     onMovieClick: (NativeMovieItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = AppTheme.colors
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -659,12 +611,12 @@ fun MovieSectionRow(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MyBoxTextPrimary
+                color = colors.textPrimary
             )
             Text(
                 text = actionLabel,
                 style = MaterialTheme.typography.bodySmall,
-                color = MyBoxGold,
+                color = colors.accent,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.clickable(onClick = onAction)
             )
@@ -683,13 +635,13 @@ fun MovieSectionRow(
     }
 }
 
-/** 影视海报卡片组件 (对标前端 MovieCard.jsx) */
 @Composable
 fun HomePosterCard(
     movie: NativeMovieItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = AppTheme.colors
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -700,48 +652,44 @@ fun HomePosterCard(
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MyBoxSurfaceRaised)
-                .border(1.dp, MyBoxBorder, RoundedCornerShape(12.dp))
+                .background(colors.surfaceRaised)
+                .border(1.dp, colors.border, RoundedCornerShape(12.dp))
         ) {
             NativePosterImage(
                 url = movie.poster,
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 底部暗色渐变
+            // Gradient
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             0.5f to Color.Transparent,
-                            1.0f to Color(0xCC07080B)
+                            1.0f to Color.Black.copy(alpha = 0.7f)
                         )
                     )
             )
 
-            // 左上角品质标
+            // Quality Badge
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(5.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(MyBoxGold, MyBoxAmber)
-                        )
-                    )
+                    .background(colors.accent)
                     .padding(horizontal = 4.dp, vertical = 2.dp)
             ) {
                 Text(
                     text = "4K",
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF0B0D12)
+                    color = Color.White
                 )
             }
 
-            // 右下角集数/清晰度说明
+            // Description / Remarks
             val remarks = movie.toJson().optString("updateInfo").ifBlank { movie.category }
             if (remarks.isNotBlank()) {
                 Box(
@@ -749,7 +697,7 @@ fun HomePosterCard(
                         .align(Alignment.BottomEnd)
                         .padding(5.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xD90C0F16))
+                        .background(Color.Black.copy(alpha = 0.7f))
                         .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -769,14 +717,14 @@ fun HomePosterCard(
             text = movie.title,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
-            color = MyBoxTextPrimary,
+            color = colors.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             text = movie.category.ifBlank { "影视" },
             style = MaterialTheme.typography.labelSmall,
-            color = MyBoxTextSecondary,
+            color = colors.textSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

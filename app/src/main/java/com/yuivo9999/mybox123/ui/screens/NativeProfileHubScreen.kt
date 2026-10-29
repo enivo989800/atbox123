@@ -2,51 +2,19 @@ package com.yuivo9999.mybox123.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,58 +26,60 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yuivo9999.mybox123.MyBoxApplication
-import com.yuivo9999.mybox123.ui.theme.MyBoxAmber
-import com.yuivo9999.mybox123.ui.theme.MyBoxBackground
-import com.yuivo9999.mybox123.ui.theme.MyBoxBorder
-import com.yuivo9999.mybox123.ui.theme.MyBoxGold
-import com.yuivo9999.mybox123.ui.theme.MyBoxGoldLight
-import com.yuivo9999.mybox123.ui.theme.MyBoxOutline
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurface
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurfaceRaised
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextMuted
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextPrimary
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextSecondary
+import com.yuivo9999.mybox123.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
  * 我的 (Profile) 中心：严格对标前端 MyPage.jsx
- * 包含：用户卡片、播放历史、搜索历史、源管理、多仓管理、播放设置、数据管理、关于
+ * 包含：用户卡片、播放历史、搜索历史、源管理、设置、外观设置、数据管理、关于
  */
 @Composable
 fun NativeProfileHubScreen(
     selectedPageName: String,
     onSelectedPageNameChange: (String) -> Unit,
+    currentThemeId: String = "sangtian",
+    onThemeChanged: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as MyBoxApplication
+    val colors = AppTheme.colors
+    val scope = rememberCoroutineScope()
     val selectedPage = ProfileSubpage.entries.firstOrNull { it.name == selectedPageName } ?: ProfileSubpage.MAIN
 
-    var sourceCount by remember { mutableStateOf(0) }
-    var historyCount by remember { mutableStateOf(0) }
-    var searchCount by remember { mutableStateOf(0) }
+    var sourceCount by remember { mutableIntStateOf(0) }
+    var historyCount by remember { mutableIntStateOf(0) }
+    var searchCount by remember { mutableIntStateOf(0) }
+
+    fun refreshCounts() {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val services = application.awaitServices()
+                    sourceCount = services.contentSourceRepository.getAll().size
+                    historyCount = services.userDataRepository.getHistoryRecords().size
+                    searchCount = services.userDataRepository.getSearchRecords().size
+                } catch (_: Exception) {}
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                val services = application.awaitServices()
-                sourceCount = services.contentSourceRepository.getAll().size
-                historyCount = services.userDataRepository.getHistoryRecords().size
-                searchCount = services.userDataRepository.getSearchRecords().size
-            } catch (_: Exception) {}
-        }
+        refreshCounts()
     }
 
     BackHandler(enabled = selectedPage != ProfileSubpage.MAIN) {
         onSelectedPageNameChange(ProfileSubpage.MAIN.name)
+        refreshCounts()
     }
 
     if (selectedPage != ProfileSubpage.MAIN) {
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .background(MyBoxBackground)
+                .background(colors.background)
                 .statusBarsPadding()
         ) {
             // Subpage Top Bar with Back Button
@@ -120,29 +90,39 @@ fun NativeProfileHubScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                IconButton(onClick = { onSelectedPageNameChange(ProfileSubpage.MAIN.name) }) {
+                IconButton(onClick = {
+                    onSelectedPageNameChange(ProfileSubpage.MAIN.name)
+                    refreshCounts()
+                }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "返回",
-                        tint = MyBoxTextPrimary
+                        tint = colors.textPrimary
                     )
                 }
                 Text(
                     text = subpageTitle(selectedPage),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
+                    color = colors.textPrimary
                 )
             }
 
             Box(modifier = Modifier.weight(1f)) {
                 when (selectedPage) {
-                    ProfileSubpage.SOURCES -> NativeSourceManagementScreen()
+                    ProfileSubpage.SOURCES -> NativeSourceManagementScreen(
+                        onNavigateMultiRepo = { onSelectedPageNameChange(ProfileSubpage.REPOSITORIES.name) }
+                    )
                     ProfileSubpage.SETTINGS -> NativeSettingsScreen()
+                    ProfileSubpage.APPEARANCE -> NativeAppearanceScreen(
+                        currentThemeId = currentThemeId,
+                        onThemeChanged = onThemeChanged
+                    )
                     ProfileSubpage.REPOSITORIES -> NativeRepositoryManagementScreen()
                     ProfileSubpage.DATA -> NativeDataManagementScreen()
                     ProfileSubpage.ABOUT -> NativeAboutScreen()
                     ProfileSubpage.HISTORY -> NativePlaybackHistoryScreen()
+                    ProfileSubpage.SEARCH_HISTORY -> NativeSearchHistorySubpage()
                     ProfileSubpage.MAIN -> {}
                 }
             }
@@ -154,7 +134,7 @@ fun NativeProfileHubScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(colors.background)
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 84.dp)
@@ -174,13 +154,13 @@ fun NativeProfileHubScreen(
                     Icon(
                         imageVector = Icons.Default.Tv,
                         contentDescription = null,
-                        tint = MyBoxGold,
+                        tint = colors.accent,
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
                         text = "TVBOX 4K 影音",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MyBoxGold,
+                        color = colors.accent,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
@@ -189,7 +169,7 @@ fun NativeProfileHubScreen(
                     text = "我的",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
+                    color = colors.textPrimary
                 )
             }
         }
@@ -197,8 +177,8 @@ fun NativeProfileHubScreen(
         // 2. User Gold Card
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MyBoxSurfaceRaised,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+            color = colors.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -214,18 +194,14 @@ fun NativeProfileHubScreen(
                     modifier = Modifier
                         .size(54.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFFF59E0B), Color(0xFFD97706))
-                            )
-                        ),
+                        .background(colors.accent),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "T",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFF101217)
+                        color = Color.White
                     )
                 }
 
@@ -238,21 +214,25 @@ fun NativeProfileHubScreen(
                             text = "TVBox 用户",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MyBoxTextPrimary
+                            color = colors.textPrimary
                         )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MyBoxGold.copy(alpha = 0.2f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = colors.accent.copy(alpha = 0.15f)
                         ) {
-                            Text("PRO", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MyBoxGold)
+                            Text(
+                                "PRO",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.accent,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
                     Text(
-                        text = "本地数据独立存储 · 4K影音尊享版",
+                        text = "本地数据独立存储 · 产品架构版",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MyBoxTextMuted
+                        color = colors.textSecondary
                     )
                 }
             }
@@ -260,82 +240,65 @@ fun NativeProfileHubScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 3. Section: 常用记录
-        Text(
-            text = "记录与订阅",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MyBoxGold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-        )
-
+        // 3. Menus strictly matching MyPage.jsx
         Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = MyBoxSurfaceRaised,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+            shape = RoundedCornerShape(16.dp),
+            color = colors.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
         ) {
             Column {
-                SangtianMenuItem(
+                ProfileMenuItem(
                     icon = Icons.Default.History,
                     title = "播放历史",
-                    badge = if (historyCount > 0) "$historyCount 条" else null,
+                    badge = if (historyCount > 0) "$historyCount" else null,
                     onClick = { onSelectedPageNameChange(ProfileSubpage.HISTORY.name) }
                 )
-                HorizontalDivider(color = MyBoxBorder, thickness = 0.5.dp)
-                SangtianMenuItem(
+                HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
+
+                ProfileMenuItem(
+                    icon = Icons.Default.Search,
+                    title = "搜索历史",
+                    badge = if (searchCount > 0) "$searchCount" else null,
+                    onClick = { onSelectedPageNameChange(ProfileSubpage.SEARCH_HISTORY.name) }
+                )
+                HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
+
+                ProfileMenuItem(
                     icon = Icons.Default.Storage,
                     title = "源管理",
-                    badge = if (sourceCount > 0) "$sourceCount 个源" else null,
+                    badge = if (sourceCount > 0) "$sourceCount" else null,
                     onClick = { onSelectedPageNameChange(ProfileSubpage.SOURCES.name) }
                 )
-                HorizontalDivider(color = MyBoxBorder, thickness = 0.5.dp)
-                SangtianMenuItem(
-                    icon = Icons.Default.CloudDownload,
-                    title = "多仓管理",
-                    onClick = { onSelectedPageNameChange(ProfileSubpage.REPOSITORIES.name) }
-                )
-            }
-        }
+                HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 4. Section: 设置与系统
-        Text(
-            text = "系统与维护",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MyBoxGold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-        )
-
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = MyBoxSurfaceRaised,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            Column {
-                SangtianMenuItem(
+                ProfileMenuItem(
                     icon = Icons.Default.Settings,
-                    title = "播放与偏好设置",
+                    title = "设置",
                     onClick = { onSelectedPageNameChange(ProfileSubpage.SETTINGS.name) }
                 )
-                HorizontalDivider(color = MyBoxBorder, thickness = 0.5.dp)
-                SangtianMenuItem(
+                HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
+
+                ProfileMenuItem(
+                    icon = Icons.Default.Palette,
+                    title = "外观设置",
+                    badge = colors.name,
+                    onClick = { onSelectedPageNameChange(ProfileSubpage.APPEARANCE.name) }
+                )
+                HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
+
+                ProfileMenuItem(
                     icon = Icons.Default.CleaningServices,
-                    title = "数据管理与清理",
+                    title = "数据管理",
                     onClick = { onSelectedPageNameChange(ProfileSubpage.DATA.name) }
                 )
-                HorizontalDivider(color = MyBoxBorder, thickness = 0.5.dp)
-                SangtianMenuItem(
+                HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
+
+                ProfileMenuItem(
                     icon = Icons.Default.Info,
-                    title = "关于本应用",
-                    badge = "v0.3.0",
+                    title = "关于",
                     onClick = { onSelectedPageNameChange(ProfileSubpage.ABOUT.name) }
                 )
             }
@@ -344,12 +307,13 @@ fun NativeProfileHubScreen(
 }
 
 @Composable
-private fun SangtianMenuItem(
+private fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
     badge: String? = null,
     onClick: () -> Unit
 ) {
+    val colors = AppTheme.colors
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -365,14 +329,14 @@ private fun SangtianMenuItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MyBoxGold,
+                tint = colors.accent,
                 modifier = Modifier.size(20.dp)
             )
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = MyBoxTextPrimary
+                color = colors.textPrimary
             )
         }
 
@@ -381,25 +345,102 @@ private fun SangtianMenuItem(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (badge != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MyBoxSurface)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = colors.surfaceRaised,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
                 ) {
                     Text(
                         text = badge,
                         fontSize = 11.sp,
-                        color = MyBoxTextMuted
+                        color = colors.textSecondary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MyBoxTextMuted,
+                tint = colors.textMuted,
                 modifier = Modifier.size(16.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun NativeSearchHistorySubpage() {
+    val context = LocalContext.current
+    val app = context.applicationContext as MyBoxApplication
+    val scope = rememberCoroutineScope()
+    val colors = AppTheme.colors
+    var searches by remember { mutableStateOf<List<com.yuivo9999.mybox123.data.storage.SearchRecord>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                searches = app.awaitServices().userDataRepository.getSearchRecords()
+            } catch (_: Exception) {}
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("历史搜索词条", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+            if (searches.isNotEmpty()) {
+                TextButton(
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            app.awaitServices().userDataRepository.saveSearchRecords(emptyList())
+                            searches = emptyList()
+                        }
+                    }
+                ) {
+                    Text("清空历史", color = Color(0xFFEF4444), fontSize = 12.sp)
+                }
+            }
+        }
+
+        if (searches.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("暂无搜索历史记录", color = colors.textMuted, fontSize = 13.sp)
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(searches) { record ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = colors.surface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(16.dp))
+                                Text(record.keyword, fontSize = 13.sp, color = colors.textPrimary)
+                            }
+                            Text("${record.count} 次", fontSize = 11.sp, color = colors.textMuted)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -407,11 +448,13 @@ private fun SangtianMenuItem(
 private fun subpageTitle(page: ProfileSubpage): String = when (page) {
     ProfileSubpage.SOURCES -> "源管理"
     ProfileSubpage.SETTINGS -> "播放与偏好设置"
+    ProfileSubpage.APPEARANCE -> "外观设置"
     ProfileSubpage.REPOSITORIES -> "多仓管理"
     ProfileSubpage.DATA -> "数据管理"
     ProfileSubpage.ABOUT -> "关于"
     ProfileSubpage.HISTORY -> "播放历史"
+    ProfileSubpage.SEARCH_HISTORY -> "搜索历史"
     ProfileSubpage.MAIN -> "我的"
 }
 
-enum class ProfileSubpage { MAIN, SOURCES, SETTINGS, REPOSITORIES, DATA, ABOUT, HISTORY }
+enum class ProfileSubpage { MAIN, SOURCES, SETTINGS, APPEARANCE, REPOSITORIES, DATA, ABOUT, HISTORY, SEARCH_HISTORY }

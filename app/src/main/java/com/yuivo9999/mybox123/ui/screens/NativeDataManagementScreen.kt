@@ -40,11 +40,11 @@ fun NativeDataManagementScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(AppTheme.colors.background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("数据与存储维护", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MyBoxTextPrimary)
+        Text("数据与存储维护", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
         Spacer(modifier = Modifier.height(4.dp))
 
         DataActionCard(
@@ -92,8 +92,8 @@ private fun DataActionCard(
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MyBoxSurfaceRaised,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+        color = AppTheme.colors.card,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -102,14 +102,14 @@ private fun DataActionCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MyBoxTextPrimary)
+                Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(description, fontSize = 12.sp, color = MyBoxTextSecondary)
+                Text(description, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
             }
             OutlinedButton(
                 onClick = onAction,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MyBoxGold),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxGold)
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.accent),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accent)
             ) {
                 Text(buttonLabel, fontSize = 12.sp)
             }

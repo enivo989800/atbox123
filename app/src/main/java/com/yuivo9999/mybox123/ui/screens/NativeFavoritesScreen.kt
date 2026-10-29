@@ -3,20 +3,7 @@ package com.yuivo9999.mybox123.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,21 +17,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,14 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.yuivo9999.mybox123.MyBoxApplication
 import com.yuivo9999.mybox123.data.storage.FavoriteRecord
-import com.yuivo9999.mybox123.ui.theme.MyBoxBackground
-import com.yuivo9999.mybox123.ui.theme.MyBoxBorder
-import com.yuivo9999.mybox123.ui.theme.MyBoxGold
-import com.yuivo9999.mybox123.ui.theme.MyBoxHeart
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurfaceRaised
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextMuted
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextPrimary
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextSecondary
+import com.yuivo9999.mybox123.ui.theme.AppTheme
 
 @Composable
 fun NativeFavoritesScreen(
@@ -78,6 +46,7 @@ fun NativeFavoritesScreen(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as MyBoxApplication
+    val colors = AppTheme.colors
     val factory = remember(application) { favoritesViewModelFactory(application) }
     val favoritesViewModel: FavoritesViewModel = viewModel(factory = factory)
     val state by favoritesViewModel.uiState.collectAsStateWithLifecycle()
@@ -93,7 +62,7 @@ fun NativeFavoritesScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(colors.background)
             .statusBarsPadding()
     ) {
         // 1. Top Header
@@ -112,13 +81,13 @@ fun NativeFavoritesScreen(
                     Icon(
                         imageVector = Icons.Default.Favorite,
                         contentDescription = null,
-                        tint = MyBoxHeart,
+                        tint = Color(0xFFE60012),
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
                         text = "TVBOX 4K 影音",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MyBoxGold,
+                        color = colors.accent,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
@@ -127,20 +96,20 @@ fun NativeFavoritesScreen(
                     text = "我的收藏",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
+                    color = colors.textPrimary
                 )
             }
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = MyBoxSurfaceRaised,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                color = colors.surfaceRaised,
+                border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
                 modifier = Modifier.clickable { favoritesViewModel.load(force = true) }
             ) {
                 Text(
                     text = "刷新",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MyBoxTextPrimary,
+                    color = colors.textPrimary,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
@@ -156,8 +125,8 @@ fun NativeFavoritesScreen(
             val isMovies = activeTab == "movies"
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = if (isMovies) Color(0xFFEEF1F5) else MyBoxSurfaceRaised,
-                border = if (isMovies) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                color = if (isMovies) colors.accent else colors.surfaceRaised,
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isMovies) colors.accent else colors.border),
                 modifier = Modifier
                     .weight(1f)
                     .clickable { activeTab = "movies" }
@@ -170,7 +139,7 @@ fun NativeFavoritesScreen(
                         text = "影视收藏 (${movieFavorites.size})",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (isMovies) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isMovies) Color(0xFF101217) else MyBoxTextSecondary
+                        color = if (isMovies) Color.White else colors.textPrimary
                     )
                 }
             }
@@ -178,8 +147,8 @@ fun NativeFavoritesScreen(
             val isLive = activeTab == "live"
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = if (isLive) Color(0xFFEEF1F5) else MyBoxSurfaceRaised,
-                border = if (isLive) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                color = if (isLive) colors.accent else colors.surfaceRaised,
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isLive) colors.accent else colors.border),
                 modifier = Modifier
                     .weight(1f)
                     .clickable { activeTab = "live" }
@@ -192,7 +161,7 @@ fun NativeFavoritesScreen(
                         text = "Live 收藏 (${liveFavorites.size})",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (isLive) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isLive) Color(0xFF101217) else MyBoxTextSecondary
+                        color = if (isLive) Color.White else colors.textPrimary
                     )
                 }
             }
@@ -211,8 +180,8 @@ fun NativeFavoritesScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CircularProgressIndicator(color = MyBoxGold)
-                        Text("正在载入收藏…", color = MyBoxTextSecondary, fontSize = 13.sp)
+                        CircularProgressIndicator(color = colors.accent)
+                        Text("正在载入收藏…", color = colors.textSecondary, fontSize = 13.sp)
                     }
                 }
             }
@@ -228,8 +197,8 @@ fun NativeFavoritesScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Movie, contentDescription = null, tint = MyBoxTextMuted, modifier = Modifier.size(40.dp))
-                            Text("还没有影视收藏", color = MyBoxTextMuted, fontSize = 14.sp)
+                            Icon(Icons.Default.Movie, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(40.dp))
+                            Text("还没有影视收藏", color = colors.textMuted, fontSize = 14.sp)
                         }
                     }
                 } else {
@@ -257,8 +226,8 @@ fun NativeFavoritesScreen(
                                         .fillMaxWidth()
                                         .aspectRatio(2f / 3f)
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(MyBoxSurfaceRaised)
-                                        .border(1.dp, MyBoxBorder, RoundedCornerShape(10.dp))
+                                        .background(colors.surfaceRaised)
+                                        .border(1.dp, colors.border, RoundedCornerShape(10.dp))
                                 ) {
                                     AsyncImage(
                                         model = posterUrl,
@@ -291,14 +260,14 @@ fun NativeFavoritesScreen(
                                     text = fav.title,
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MyBoxTextPrimary,
+                                    color = colors.textPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = fav.subtitle,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MyBoxTextMuted,
+                                    color = colors.textMuted,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -320,8 +289,8 @@ fun NativeFavoritesScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Radio, contentDescription = null, tint = MyBoxTextMuted, modifier = Modifier.size(40.dp))
-                            Text("还没有 Live 收藏", color = MyBoxTextMuted, fontSize = 14.sp)
+                            Icon(Icons.Default.Radio, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(40.dp))
+                            Text("还没有 Live 收藏", color = colors.textMuted, fontSize = 14.sp)
                         }
                     }
                 } else {
@@ -336,8 +305,8 @@ fun NativeFavoritesScreen(
                             val record = fav.record
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = MyBoxSurfaceRaised,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                                color = colors.surface,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { onOpenFavorite(record) }
@@ -353,15 +322,15 @@ fun NativeFavoritesScreen(
                                         modifier = Modifier
                                             .size(44.dp)
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFFF59E0B).copy(alpha = 0.2f))
-                                            .border(1.dp, MyBoxGold.copy(alpha = 0.5f), RoundedCornerShape(10.dp)),
+                                            .background(colors.accent.copy(alpha = 0.15f))
+                                            .border(1.dp, colors.accent.copy(alpha = 0.3f), RoundedCornerShape(10.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = fav.title.take(3),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MyBoxGold
+                                            color = colors.accent
                                         )
                                     }
 
@@ -373,14 +342,14 @@ fun NativeFavoritesScreen(
                                             text = fav.title,
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontWeight = FontWeight.Bold,
-                                            color = MyBoxTextPrimary,
+                                            color = colors.textPrimary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
                                             text = fav.subtitle,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MyBoxTextSecondary,
+                                            color = colors.textSecondary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -394,14 +363,14 @@ fun NativeFavoritesScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Favorite,
                                                 contentDescription = "取消收藏",
-                                                tint = MyBoxHeart,
+                                                tint = Color(0xFFE60012),
                                                 modifier = Modifier.size(20.dp)
                                             )
                                         }
 
                                         Button(
                                             onClick = { onOpenFavorite(record) },
-                                            colors = ButtonDefaults.buttonColors(containerColor = MyBoxGold, contentColor = Color(0xFF101217)),
+                                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = Color.White),
                                             shape = RoundedCornerShape(8.dp),
                                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                         ) {

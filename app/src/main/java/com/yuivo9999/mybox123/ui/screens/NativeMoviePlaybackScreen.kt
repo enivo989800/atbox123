@@ -2,54 +2,34 @@ package com.yuivo9999.mybox123.ui.screens
 
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,19 +43,16 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import coil.compose.AsyncImage
 import com.yuivo9999.mybox123.MyBoxApplication
+import com.yuivo9999.mybox123.app.AppDestination
 import com.yuivo9999.mybox123.data.movie.NativeMovieItem
 import com.yuivo9999.mybox123.data.movie.StaticCatalogData
-import com.yuivo9999.mybox123.data.storage.HistoryRecord
-import com.yuivo9999.mybox123.ui.theme.MyBoxBackground
-import com.yuivo9999.mybox123.ui.theme.MyBoxBorder
-import com.yuivo9999.mybox123.ui.theme.MyBoxGold
-import com.yuivo9999.mybox123.ui.theme.MyBoxGoldLight
-import com.yuivo9999.mybox123.ui.theme.MyBoxSurfaceRaised
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextMuted
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextPrimary
-import com.yuivo9999.mybox123.ui.theme.MyBoxTextSecondary
+import com.yuivo9999.mybox123.data.storage.FavoriteRecord
+import com.yuivo9999.mybox123.data.storage.PlaybackHistoryRecord
+import com.yuivo9999.mybox123.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -87,384 +64,608 @@ fun NativeMoviePlaybackScreen(
     movie: NativeMovieItem,
     sourceId: String,
     onPlaybackFinished: () -> Unit,
+    onNavigateDestination: ((AppDestination) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as MyBoxApplication
-    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
+    val colors = AppTheme.colors
 
     // Fallback if episodes is empty: check static catalog
-    val effectiveMovie = remember(movie) {
-        if (movie.episodes.isNotEmpty()) movie
-        else {
-            val matched = StaticCatalogData.movies.firstOrNull {
-                it.contentId == movie.contentId || it.sourceItemId == movie.sourceItemId || it.title == movie.title
+    var currentMovie by remember {
+        mutableStateOf(
+            if (movie.episodes.isNotEmpty()) movie
+            else {
+                StaticCatalogData.movies.firstOrNull {
+                    it.title.equals(movie.title, ignoreCase = true) || it.contentId == movie.contentId
+                } ?: movie
             }
-            matched ?: movie
-        }
+        )
     }
 
     var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
     var selectedCandidateIndex by remember { mutableIntStateOf(0) }
     var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
-    var speedMenuExpanded by remember { mutableStateOf(false) }
+    var isBuffering by remember { mutableStateOf(false) }
+    var isPlaying by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var isBuffering by remember { mutableStateOf(true) }
+    var isFullscreen by remember { mutableStateOf(false) }
 
-    val currentEpisode = remember(effectiveMovie.episodes, selectedEpisodeIndex) {
-        if (selectedEpisodeIndex in effectiveMovie.episodes.indices) {
-            effectiveMovie.episodes[selectedEpisodeIndex]
-        } else null
+    // Dialogs & Drawers
+    var showDrawer by remember { mutableStateOf(false) }
+    var showOtherSourceSearch by remember { mutableStateOf(false) }
+    var activeConsoleTab by remember { mutableStateOf("episodes") } // "episodes" or "info"
+    var isSortReversed by remember { mutableStateOf(false) }
+    var isFavorited by remember { mutableStateOf(false) }
+
+    val currentEpisode = remember(currentMovie, selectedEpisodeIndex) {
+        currentMovie.episodes.getOrNull(selectedEpisodeIndex)
     }
 
     val candidates = remember(currentEpisode) {
         val list = mutableListOf<Pair<String, String>>()
-        val rawCandidates = currentEpisode?.optJSONArray("candidates")
-        if (rawCandidates != null && rawCandidates.length() > 0) {
-            for (i in 0 until rawCandidates.length()) {
-                val obj = rawCandidates.optJSONObject(i)
-                if (obj != null) {
-                    val label = obj.optString("label").ifBlank { "线路 ${i + 1}" }
-                    val url = obj.optString("mediaUrl").ifBlank { obj.optString("url") }
-                    if (url.isNotBlank()) list.add(label to url)
+        if (currentEpisode != null) {
+            val arr = currentEpisode.optJSONArray("candidates")
+            if (arr != null && arr.length() > 0) {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i)
+                    if (obj != null) {
+                        val label = obj.optString("label").ifBlank { "线路 ${i + 1}" }
+                        val url = obj.optString("mediaUrl").ifBlank { obj.optString("url") }
+                        if (url.isNotBlank()) list.add(label to url)
+                    }
                 }
             }
-        }
-        if (list.isEmpty()) {
-            val defaultUrl = currentEpisode?.optString("url")
-                ?: currentEpisode?.optString("playUrl")
-                ?: effectiveMovie.toJson().optString("url")
-                ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
-            list.add("4K超清专线" to defaultUrl)
+            if (list.isEmpty()) {
+                val direct = currentEpisode.optString("url").ifBlank { currentEpisode.optString("playUrl") }
+                if (direct.isNotBlank()) list.add("默认线路" to direct)
+            }
         }
         list
     }
 
-    val activePlayUrl = remember(candidates, selectedCandidateIndex) {
-        if (selectedCandidateIndex in candidates.indices) candidates[selectedCandidateIndex].second
-        else candidates.firstOrNull()?.second ?: ""
+    val activeCandidateUrl = remember(candidates, selectedCandidateIndex) {
+        candidates.getOrNull(selectedCandidateIndex)?.second.orEmpty()
     }
 
-    val exoPlayer = remember(context) {
+    // Check favorite status
+    LaunchedEffect(currentMovie) {
+        withContext(Dispatchers.IO) {
+            try {
+                val repo = application.awaitServices().userDataRepository
+                val favs = repo.getFavoriteRecords()
+                val id = currentMovie.contentId.ifBlank { currentMovie.sourceItemId }
+                isFavorited = favs.any { it.targetId == id }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleFavorite() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val repo = application.awaitServices().userDataRepository
+                val favs = repo.getFavoriteRecords()
+                val id = currentMovie.contentId.ifBlank { currentMovie.sourceItemId }
+                if (isFavorited) {
+                    val updated = favs.filterNot { it.targetId == id }
+                    repo.saveFavoriteRecords(updated)
+                    isFavorited = false
+                } else {
+                    val rec = JSONObject()
+                        .put("favoriteId", "fav_movie_${System.currentTimeMillis()}")
+                        .put("targetType", "movie")
+                        .put("targetId", id)
+                        .put("title", currentMovie.title)
+                        .put("poster", currentMovie.poster)
+                        .put("sourceId", sourceId)
+                        .put("createdAt", System.currentTimeMillis())
+                    repo.saveFavoriteRecords(favs + FavoriteRecord.fromJson(rec))
+                    isFavorited = true
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    // Media3 ExoPlayer instance
+    val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             playWhenReady = true
         }
     }
 
-    // Update media source when URL changes
-    LaunchedEffect(exoPlayer, activePlayUrl) {
-        if (activePlayUrl.isNotBlank()) {
-            isBuffering = true
-            errorMessage = null
-            exoPlayer.setMediaItem(MediaItem.fromUri(activePlayUrl))
-            exoPlayer.prepare()
-            exoPlayer.playWhenReady = true
-        }
-    }
-
-    // Speed update
-    LaunchedEffect(exoPlayer, playbackSpeed) {
-        exoPlayer.playbackParameters = PlaybackParameters(playbackSpeed)
-    }
-
-    // Player events listener
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(Unit) {
         val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                isBuffering = (playbackState == Player.STATE_BUFFERING)
+            override fun onPlaybackStateChanged(state: Int) {
+                isBuffering = (state == Player.STATE_BUFFERING)
+                if (state == Player.STATE_READY) {
+                    errorMessage = null
+                }
+            }
+
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                isBuffering = false
-                errorMessage = error.localizedMessage ?: "当前线路连接超时，可尝试切换其他线路"
+                errorMessage = "视频加载失败，可尝试切换其他线路或全网搜同名"
             }
         }
         exoPlayer.addListener(listener)
-
         onDispose {
-            // Record history before releasing
-            val pos = exoPlayer.currentPosition / 1000L
-            val dur = (exoPlayer.duration / 1000L).coerceAtLeast(0L)
             exoPlayer.removeListener(listener)
             exoPlayer.release()
+        }
+    }
 
-            if (pos > 5L) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        val repo = application.awaitServices().userDataRepository
-                        val existing = repo.getHistoryRecords()
-                        val record = HistoryRecord.fromJson(
-                            JSONObject()
+    // Prepare media when URL changes
+    LaunchedEffect(activeCandidateUrl) {
+        if (activeCandidateUrl.isNotBlank()) {
+            errorMessage = null
+            try {
+                val mediaItem = MediaItem.fromUri(activeCandidateUrl)
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+                exoPlayer.playWhenReady = true
+            } catch (e: Exception) {
+                errorMessage = "播放初始化错误: ${e.message}"
+            }
+        }
+    }
+
+    LaunchedEffect(playbackSpeed) {
+        exoPlayer.playbackParameters = PlaybackParameters(playbackSpeed)
+    }
+
+    // Periodic progress record save
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5000)
+            if (exoPlayer.isPlaying) {
+                val pos = exoPlayer.currentPosition / 1000L
+                val dur = exoPlayer.duration / 1000L
+                if (dur > 0) {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val repo = application.awaitServices().userDataRepository
+                            val existing = repo.getHistoryRecords()
+                            val id = currentMovie.contentId.ifBlank { currentMovie.sourceItemId }
+                            val record = JSONObject()
                                 .put("historyId", "hist_${System.currentTimeMillis()}")
-                                .put("targetType", "content")
-                                .put("targetId", effectiveMovie.contentId.ifBlank { effectiveMovie.sourceItemId })
-                                .put("title", effectiveMovie.title)
+                                .put("targetType", "movie")
+                                .put("targetId", id)
+                                .put("title", currentMovie.title)
                                 .put("sourceId", sourceId)
                                 .put("positionSeconds", pos)
                                 .put("durationSeconds", dur)
                                 .put("lastPlayedAt", System.currentTimeMillis())
-                                .put("poster", effectiveMovie.poster)
+                                .put("poster", currentMovie.poster)
                                 .put("episodeId", currentEpisode?.optString("episodeId") ?: "ep1")
                                 .put("episodeTitle", currentEpisode?.optString("title") ?: "正片")
-                        )
-                        val updated = listOf(record) + existing.filterNot { it.targetId == record.targetId }
-                        repo.saveHistoryRecords(updated.take(50))
-                    } catch (_: Exception) {}
+                            val updated = listOf(PlaybackHistoryRecord.fromJson(record)) + existing.filterNot { it.targetId == id }
+                            repo.saveHistoryRecords(updated.take(50))
+                        } catch (_: Exception) {}
+                    }
                 }
             }
         }
     }
 
     BackHandler {
-        onPlaybackFinished()
+        if (isFullscreen) {
+            isFullscreen = false
+        } else if (showDrawer) {
+            showDrawer = false
+        } else if (showOtherSourceSearch) {
+            showOtherSourceSearch = false
+        } else {
+            onPlaybackFinished()
+        }
     }
 
-    Column(
+    val episodesList = remember(currentMovie.episodes, isSortReversed) {
+        if (isSortReversed) currentMovie.episodes.reversed() else currentMovie.episodes
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(colors.background)
     ) {
-        // 1. Top Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                IconButton(onClick = onPlaybackFinished) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "返回",
-                        tint = Color.White
-                    )
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 1. Top Bar: SangtianTopBar
+            SangtianTopBar(
+                title = currentMovie.title,
+                subTitle = currentEpisode?.optString("title")?.ifBlank { "第 ${selectedEpisodeIndex + 1} 集" } ?: "正片 4K",
+                onHamburger = { showDrawer = true },
+                onSearchSameName = { showOtherSourceSearch = true },
+                onBack = onPlaybackFinished,
+                currentThemeId = colors.id,
+                currentMediaUrl = activeCandidateUrl,
+                onSelectTheme = { themeId ->
+                    // Change theme through ViewModel if applicable
                 }
-                Column {
-                    Text(
-                        text = effectiveMovie.title.ifBlank { "影片播放" },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    val epLabel = currentEpisode?.optString("title")?.ifBlank { "第 ${selectedEpisodeIndex + 1} 集" } ?: "正片 4K"
-                    Text(
-                        text = "$epLabel · ${candidates.getOrNull(selectedCandidateIndex)?.first ?: "4K线路"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MyBoxGold,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            // Speed Selector Button
-            Box {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MyBoxSurfaceRaised,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
-                    modifier = Modifier.clickable { speedMenuExpanded = true }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(Icons.Default.Speed, contentDescription = null, tint = MyBoxGold, modifier = Modifier.size(14.dp))
-                        Text(
-                            text = "${playbackSpeed}x",
-                            fontSize = 12.sp,
-                            color = MyBoxTextPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = speedMenuExpanded,
-                    onDismissRequest = { speedMenuExpanded = false }
-                ) {
-                    listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
-                        DropdownMenuItem(
-                            text = { Text("${speed}x 倍速") },
-                            onClick = {
-                                playbackSpeed = speed
-                                speedMenuExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // 2. Video Player Surface
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = exoPlayer
-                        useController = true
-                        setShowNextButton(false)
-                        setShowPreviousButton(false)
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
             )
 
-            if (isBuffering && errorMessage == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+            // 2. Video Player Block (16:9 at top)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .background(colors.playerBg),
+                contentAlignment = Alignment.Center
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            player = exoPlayer
+                            useController = true
+                            setShowNextButton(false)
+                            setShowPreviousButton(false)
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                if (isBuffering && errorMessage == null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = MyBoxGold, modifier = Modifier.size(36.dp))
-                        Text("正在缓冲 4K 极速流…", color = Color.White, fontSize = 12.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CircularProgressIndicator(color = colors.accent, modifier = Modifier.size(36.dp))
+                            Text("正在缓冲极速流…", color = Color.White, fontSize = 12.sp)
+                        }
                     }
                 }
-            }
 
-            if (errorMessage != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.85f))
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                if (errorMessage != null) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)).padding(16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = errorMessage ?: "",
-                            color = Color(0xFFEF4444),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontSize = 13.sp
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MyBoxGold,
-                            modifier = Modifier.clickable {
-                                errorMessage = null
-                                exoPlayer.prepare()
-                                exoPlayer.playWhenReady = true
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(errorMessage ?: "", color = Color(0xFFEF4444), fontSize = 12.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        errorMessage = null
+                                        exoPlayer.prepare()
+                                        exoPlayer.playWhenReady = true
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("重试", fontSize = 11.sp, color = Color.White)
+                                }
+                                OutlinedButton(
+                                    onClick = { showOtherSourceSearch = true },
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("全网搜同名", fontSize = 11.sp, color = Color.White)
+                                }
                             }
-                        ) {
-                            Text(
-                                text = "重新连接线路",
-                                color = Color(0xFF101217),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                            )
                         }
                     }
                 }
             }
-        }
 
-        // 3. Multi-line Switcher (Candidates)
-        if (candidates.size > 1) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            // 3. Floating Quick Bar (SangtianFloatingBar)
+            Surface(
+                color = colors.surface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, colors.border.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("播放线路切换", style = MaterialTheme.typography.labelSmall, color = MyBoxTextMuted)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(candidates.size) { idx ->
-                        val isSel = idx == selectedCandidateIndex
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 选集 Quick Button
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (isSel) MyBoxGoldLight else MyBoxSurfaceRaised,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) MyBoxGold else MyBoxBorder),
-                            modifier = Modifier.clickable { selectedCandidateIndex = idx }
+                            color = if (activeConsoleTab == "episodes") colors.accent else colors.surfaceRaised,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (activeConsoleTab == "episodes") colors.accent else colors.border),
+                            modifier = Modifier.clickable { activeConsoleTab = "episodes" }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.List, contentDescription = null, tint = if (activeConsoleTab == "episodes") Color.White else colors.textPrimary, modifier = Modifier.size(14.dp))
+                                Text("选集", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (activeConsoleTab == "episodes") Color.White else colors.textPrimary)
+                            }
+                        }
+
+                        // 换源 Quick Button
+                        if (candidates.size > 1) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = colors.surfaceRaised,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                                modifier = Modifier.clickable {
+                                    selectedCandidateIndex = (selectedCandidateIndex + 1) % candidates.size
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = colors.accent, modifier = Modifier.size(13.dp))
+                                    Text("换线 (${selectedCandidateIndex + 1}/${candidates.size})", fontSize = 11.sp, color = colors.textPrimary)
+                                }
+                            }
+                        }
+
+                        // Speed dropdown button
+                        var speedExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = colors.surfaceRaised,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                                modifier = Modifier.clickable { speedExpanded = true }
+                            ) {
+                                Text("${playbackSpeed}x 倍速", fontSize = 11.sp, color = colors.textPrimary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                            }
+                            DropdownMenu(expanded = speedExpanded, onDismissRequest = { speedExpanded = false }) {
+                                listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { spd ->
+                                    DropdownMenuItem(
+                                        text = { Text("${spd}x") },
+                                        onClick = {
+                                            playbackSpeed = spd
+                                            speedExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Right Favorite Button
+                    IconButton(onClick = { toggleFavorite() }, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "收藏",
+                            tint = if (isFavorited) Color(0xFFE60012) else colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 4. SangtianConsoleCard: Tabbed Episodes / Info
+            Surface(
+                color = colors.surface,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Console Tab Switcher
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (activeConsoleTab == "episodes") colors.accent else colors.surfaceRaised,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (activeConsoleTab == "episodes") colors.accent else colors.border),
+                            modifier = Modifier.clickable { activeConsoleTab = "episodes" }
                         ) {
                             Text(
-                                text = candidates[idx].first,
+                                text = "选集列表 (${currentMovie.episodes.size})",
                                 fontSize = 12.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSel) MyBoxGold else MyBoxTextSecondary,
+                                fontWeight = FontWeight.Bold,
+                                color = if (activeConsoleTab == "episodes") Color.White else colors.textPrimary,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (activeConsoleTab == "info") colors.accent else colors.surfaceRaised,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (activeConsoleTab == "info") colors.accent else colors.border),
+                            modifier = Modifier.clickable { activeConsoleTab = "info" }
+                        ) {
+                            Text(
+                                text = "影片简介",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (activeConsoleTab == "info") Color.White else colors.textPrimary,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
                     }
-                }
-            }
-        }
 
-        // 4. Episode Switcher
-        if (effectiveMovie.episodes.size > 1) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "选集 (${effectiveMovie.episodes.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
-                )
+                    HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
 
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(effectiveMovie.episodes.size) { index ->
-                        val ep = effectiveMovie.episodes[index]
-                        val name = ep.optString("title").ifBlank { ep.optString("name") }.ifBlank { "第 ${index + 1} 集" }
-                        val isSelected = index == selectedEpisodeIndex
+                    // Tab Content
+                    if (activeConsoleTab == "episodes") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            // Sub-toolbar: Candidates & Sort Toggle
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (candidates.size > 1) {
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        items(candidates.size) { idx ->
+                                            val isSel = idx == selectedCandidateIndex
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (isSel) colors.accent.copy(alpha = 0.15f) else colors.surfaceRaised,
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) colors.accent else colors.border),
+                                                modifier = Modifier.clickable { selectedCandidateIndex = idx }
+                                            ) {
+                                                Text(
+                                                    text = candidates[idx].first,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                                    color = if (isSel) colors.accent else colors.textSecondary,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text("正片剧集", fontSize = 12.sp, color = colors.textSecondary)
+                                }
 
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) MyBoxGoldLight else MyBoxSurfaceRaised,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) MyBoxGold else MyBoxBorder),
-                            modifier = Modifier.clickable {
-                                selectedEpisodeIndex = index
-                                selectedCandidateIndex = 0
+                                TextButton(
+                                    onClick = { isSortReversed = !isSortReversed },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(if (isSortReversed) "倒序" else "正序", fontSize = 11.sp, color = colors.accent)
+                                }
                             }
+
+                            // Episode Grid
+                            LazyVerticalGrid(
+                                columns = GridCells.Adaptive(minSize = 70.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                itemsIndexed(episodesList) { idx, ep ->
+                                    val realIdx = if (isSortReversed) currentMovie.episodes.size - 1 - idx else idx
+                                    val isCurrent = realIdx == selectedEpisodeIndex
+                                    val title = ep.optString("title").ifBlank { ep.optString("name") }.ifBlank { "${realIdx + 1}" }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isCurrent) colors.accent else colors.surfaceRaised,
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isCurrent) colors.accent else colors.border
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                selectedEpisodeIndex = realIdx
+                                                selectedCandidateIndex = 0
+                                            }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = title,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isCurrent) Color.White else colors.textPrimary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Info Tab
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = MyBoxGold,
-                                        modifier = Modifier.size(14.dp)
+                                if (currentMovie.poster.isNotBlank()) {
+                                    AsyncImage(
+                                        model = currentMovie.poster,
+                                        contentDescription = currentMovie.title,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .width(88.dp)
+                                            .height(124.dp)
+                                            .clip(RoundedCornerShape(10.dp))
                                     )
                                 }
-                                Text(
-                                    text = name,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) MyBoxGold else MyBoxTextPrimary
-                                )
+
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = currentMovie.title,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.textPrimary
+                                    )
+                                    Text(
+                                        text = "分类：${currentMovie.category.ifBlank { "电影" }} · ${currentMovie.sourceCategoryName}",
+                                        fontSize = 11.sp,
+                                        color = colors.textSecondary
+                                    )
+                                    Text(
+                                        text = "地区/年代：${currentMovie.region.ifBlank { "中国大陆" }} · ${currentMovie.year}",
+                                        fontSize = 11.sp,
+                                        color = colors.textSecondary
+                                    )
+                                    if (currentMovie.rating.isNotBlank()) {
+                                        Text(
+                                            text = "评分：★ ${currentMovie.rating}",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.gold
+                                        )
+                                    }
+                                    if (currentMovie.director.isNotBlank()) {
+                                        Text(
+                                            text = "导演：${currentMovie.director}",
+                                            fontSize = 11.sp,
+                                            color = colors.textMuted
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (currentMovie.actors.isNotEmpty()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text("主要演员", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                                    Text(
+                                        text = currentMovie.actors.joinToString(" / "),
+                                        fontSize = 11.sp,
+                                        color = colors.textSecondary
+                                    )
+                                }
+                            }
+
+                            if (currentMovie.description.isNotBlank()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text("剧情简介", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                                    Text(
+                                        text = currentMovie.description,
+                                        fontSize = 12.sp,
+                                        color = colors.textSecondary,
+                                        lineHeight = 18.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -472,27 +673,35 @@ fun NativeMoviePlaybackScreen(
             }
         }
 
-        // 5. Synopsis
-        if (effectiveMovie.description.isNotBlank()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "影片简介",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
-                )
-                Text(
-                    text = effectiveMovie.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MyBoxTextSecondary,
-                    lineHeight = 18.sp
-                )
+        // Drawer overlay
+        SangtianDrawer(
+            isOpen = showDrawer,
+            onClose = { showDrawer = false },
+            onNav = { dest ->
+                onNavigateDestination?.invoke(dest)
+                if (dest != AppDestination.MOVIE_PLAYBACK) {
+                    onPlaybackFinished()
+                }
+            },
+            currentThemeId = colors.id,
+            onSelectTheme = { themeId ->
+                // Switch theme
             }
+        )
+
+        // Other source search dialog
+        if (showOtherSourceSearch) {
+            OtherSourceSearchDialog(
+                title = currentMovie.title,
+                currentSourceId = sourceId,
+                onClose = { showOtherSourceSearch = false },
+                onSelectMovie = { newMovie ->
+                    currentMovie = newMovie
+                    selectedEpisodeIndex = 0
+                    selectedCandidateIndex = 0
+                    showOtherSourceSearch = false
+                }
+            )
         }
     }
 }

@@ -48,7 +48,7 @@ fun NativePlaybackHistoryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(AppTheme.colors.background)
             .padding(horizontal = 16.dp)
     ) {
         Row(
@@ -56,7 +56,7 @@ fun NativePlaybackHistoryScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("播放历史", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MyBoxTextPrimary)
+            Text("播放历史", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
             if (records.isNotEmpty()) {
                 TextButton(onClick = {
                     scope.launch {
@@ -66,14 +66,14 @@ fun NativePlaybackHistoryScreen(
                         records = emptyList()
                     }
                 }) {
-                    Text("清空", color = MyBoxGold, fontSize = 14.sp)
+                    Text("清空", color = AppTheme.colors.accent, fontSize = 14.sp)
                 }
             }
         }
 
         if (loading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MyBoxGold)
+                CircularProgressIndicator(color = AppTheme.colors.accent)
             }
         } else if (records.isEmpty()) {
             Box(
@@ -82,7 +82,7 @@ fun NativePlaybackHistoryScreen(
                     .padding(top = 40.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("暂无播放历史记录", color = MyBoxTextSecondary, fontSize = 14.sp)
+                Text("暂无播放历史记录", color = AppTheme.colors.textSecondary, fontSize = 14.sp)
             }
         } else {
             LazyColumn(
@@ -92,8 +92,8 @@ fun NativePlaybackHistoryScreen(
                 items(records, key = { it.historyId.ifBlank { "${it.targetId}_${it.lastPlayedAt}" } }) { item ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MyBoxSurfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder)
+                        color = AppTheme.colors.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Row(
                             modifier = Modifier
@@ -106,7 +106,7 @@ fun NativePlaybackHistoryScreen(
                                 modifier = Modifier
                                     .size(width = 64.dp, height = 80.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(MyBoxSurface)
+                                    .background(AppTheme.colors.background)
                             ) {
                                 if (item.poster.isNotBlank()) {
                                     AsyncImage(
@@ -119,7 +119,7 @@ fun NativePlaybackHistoryScreen(
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = null,
-                                        tint = MyBoxGold,
+                                        tint = AppTheme.colors.accent,
                                         modifier = Modifier.align(Alignment.Center)
                                     )
                                 }
@@ -130,21 +130,21 @@ fun NativePlaybackHistoryScreen(
                                     item.title.ifBlank { "未命名" },
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MyBoxTextPrimary,
+                                    color = AppTheme.colors.textPrimary,
                                     maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     item.episodeTitle.ifBlank { "正片" },
                                     fontSize = 13.sp,
-                                    color = MyBoxGold
+                                    color = AppTheme.colors.accent
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 val mins = (item.positionSeconds / 60.0).toInt()
                                 Text(
                                     if (mins > 0) "观看至 $mins 分钟" else "刚开始观看",
                                     fontSize = 11.sp,
-                                    color = MyBoxTextMuted
+                                    color = AppTheme.colors.textMuted
                                 )
                             }
                         }

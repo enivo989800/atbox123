@@ -27,4 +27,22 @@ class NativeContentSourceRepository(context: Context) {
         sources.forEach { arr.put(it.toJson()) }
         prefs.edit().putString("sources", arr.toString()).apply()
     }
+
+    fun remove(sourceId: String) {
+        saveAll(getAll().filter { it.sourceId != sourceId })
+    }
+
+    fun setEnabled(sourceId: String, enabled: Boolean) {
+        saveAll(getAll().map { if (it.sourceId == sourceId) it.copy(enabled = enabled) else it })
+    }
+
+    fun resetToBuiltinDefaults() {
+        saveAll(emptyList())
+    }
+
+    fun add(source: NativeContentSource) {
+        val list = getAll().filter { it.sourceId != source.sourceId }.toMutableList()
+        list.add(source)
+        saveAll(list)
+    }
 }

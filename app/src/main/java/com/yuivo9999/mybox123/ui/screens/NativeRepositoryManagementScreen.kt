@@ -48,7 +48,7 @@ fun NativeRepositoryManagementScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(AppTheme.colors.background)
             .padding(horizontal = 16.dp)
     ) {
         Row(
@@ -56,15 +56,15 @@ fun NativeRepositoryManagementScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("多仓订阅配置", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MyBoxTextPrimary)
+            Text("多仓订阅配置", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
             IconButton(onClick = { vm.load(force = true) }) {
-                Icon(Icons.Default.Refresh, contentDescription = "刷新", tint = MyBoxGold)
+                Icon(Icons.Default.Refresh, contentDescription = "刷新", tint = AppTheme.colors.accent)
             }
         }
 
         if (state.loading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = MyBoxGold)
+                CircularProgressIndicator(color = AppTheme.colors.accent)
             }
         } else {
             LazyColumn(
@@ -74,8 +74,8 @@ fun NativeRepositoryManagementScreen(
                 items(state.repositories, key = { it.id }) { repo ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MyBoxSurfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder)
+                        color = AppTheme.colors.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Column(
                             modifier = Modifier
@@ -87,20 +87,20 @@ fun NativeRepositoryManagementScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(repo.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MyBoxTextPrimary)
+                                Text(repo.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
                                 Switch(
                                     checked = repo.enabled,
                                     onCheckedChange = { vm.toggle(repo, it) },
                                     colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MyBoxBackground,
-                                        checkedTrackColor = MyBoxGold,
-                                        uncheckedThumbColor = MyBoxTextMuted,
-                                        uncheckedTrackColor = MyBoxSurface
+                                        checkedThumbColor = AppTheme.colors.background,
+                                        checkedTrackColor = AppTheme.colors.accent,
+                                        uncheckedThumbColor = AppTheme.colors.textMuted,
+                                        uncheckedTrackColor = AppTheme.colors.card
                                     )
                                 )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(repo.primaryUrl, fontSize = 12.sp, color = MyBoxTextSecondary, maxLines = 1)
+                            Text(repo.primaryUrl, fontSize = 12.sp, color = AppTheme.colors.textSecondary, maxLines = 1)
                             Spacer(modifier = Modifier.height(10.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -111,12 +111,12 @@ fun NativeRepositoryManagementScreen(
                                     onClick = { vm.syncPreview(repo) },
                                     enabled = repo.enabled && state.syncingRepositoryId == null
                                 ) {
-                                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = MyBoxGold, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = AppTheme.colors.accent, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("同步解析", color = MyBoxGold, fontSize = 12.sp)
+                                    Text("同步解析", color = AppTheme.colors.accent, fontSize = 12.sp)
                                 }
                                 IconButton(onClick = { vm.remove(repo) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = MyBoxTextMuted, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Delete, contentDescription = "删除", tint = AppTheme.colors.textMuted, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }

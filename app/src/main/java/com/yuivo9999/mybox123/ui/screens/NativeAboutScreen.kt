@@ -25,44 +25,44 @@ fun NativeAboutScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(AppTheme.colors.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Surface(
             shape = CircleShape,
-            color = MyBoxGold.copy(alpha = 0.15f),
+            color = AppTheme.colors.accent.copy(alpha = 0.15f),
             modifier = Modifier.size(80.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Tv,
                     contentDescription = null,
-                    tint = MyBoxGold,
+                    tint = AppTheme.colors.accent,
                     modifier = Modifier.size(40.dp)
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text("MyBox 影音", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MyBoxTextPrimary)
+        Text("MyBox 影音", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
         Spacer(modifier = Modifier.height(4.dp))
-        Text("版本 1.0.0 (Native Release)", fontSize = 13.sp, color = MyBoxTextSecondary)
+        Text("版本 1.0.0 (Native Release)", fontSize = 13.sp, color = AppTheme.colors.textSecondary)
 
         Spacer(modifier = Modifier.height(32.dp))
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = MyBoxSurfaceRaised,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+            color = AppTheme.colors.card,
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("架构特性：", fontWeight = FontWeight.Bold, color = MyBoxGold, fontSize = 14.sp)
-                Text("• 纯原生 Kotlin + Jetpack Compose 打造", color = MyBoxTextSecondary, fontSize = 13.sp)
-                Text("• 原生 Media3 ExoPlayer 支持 4K H.265 / HLS", color = MyBoxTextSecondary, fontSize = 13.sp)
-                Text("• 适配 Android 10 到 Android 15 现代系统", color = MyBoxTextSecondary, fontSize = 13.sp)
-                Text("• 全面兼容 TVBox 多仓源及 M3U 电视直播格式", color = MyBoxTextSecondary, fontSize = 13.sp)
+                Text("架构特性：", fontWeight = FontWeight.Bold, color = AppTheme.colors.accent, fontSize = 14.sp)
+                Text("• 纯原生 Kotlin + Jetpack Compose 打造", color = AppTheme.colors.textSecondary, fontSize = 13.sp)
+                Text("• 原生 Media3 ExoPlayer 支持 4K H.265 / HLS", color = AppTheme.colors.textSecondary, fontSize = 13.sp)
+                Text("• 适配 Android 10 到 Android 15 现代系统", color = AppTheme.colors.textSecondary, fontSize = 13.sp)
+                Text("• 全面兼容 TVBox 多仓源及 M3U 电视直播格式", color = AppTheme.colors.textSecondary, fontSize = 13.sp)
             }
         }
     }

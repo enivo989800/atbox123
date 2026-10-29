@@ -81,6 +81,8 @@ import coil.compose.AsyncImage
 import com.yuivo9999.mybox123.MyBoxApplication
 import com.yuivo9999.mybox123.data.movie.NativeMovieItem
 import com.yuivo9999.mybox123.data.storage.SearchRecord
+import androidx.compose.foundation.BorderStroke
+import com.yuivo9999.mybox123.ui.theme.AppTheme
 import com.yuivo9999.mybox123.ui.theme.MyBoxAmber
 import com.yuivo9999.mybox123.ui.theme.MyBoxBackground
 import com.yuivo9999.mybox123.ui.theme.MyBoxBorder
@@ -153,9 +155,9 @@ fun NativeMovieCatalogScreen(
     if (confirmClearSearchHistory) {
         AlertDialog(
             onDismissRequest = { confirmClearSearchHistory = false },
-            containerColor = MyBoxSurfaceRaised,
-            title = { Text("清空搜索历史？", color = MyBoxTextPrimary) },
-            text = { Text("此操作将清空本地保存的所有影视搜索关键词记录。", color = MyBoxTextSecondary) },
+            containerColor = AppTheme.colors.card,
+            title = { Text("清空搜索历史？", color = AppTheme.colors.textPrimary) },
+            text = { Text("此操作将清空本地保存的所有影视搜索关键词记录。", color = AppTheme.colors.textSecondary) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -166,7 +168,7 @@ fun NativeMovieCatalogScreen(
                 ) { Text("清空") }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClearSearchHistory = false }) { Text("取消", color = MyBoxTextSecondary) }
+                TextButton(onClick = { confirmClearSearchHistory = false }) { Text("取消", color = AppTheme.colors.textSecondary) }
             },
         )
     }
@@ -195,7 +197,7 @@ fun NativeMovieCatalogScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground)
+            .background(AppTheme.colors.background)
             .statusBarsPadding()
     ) {
         // 1. Top Header
@@ -214,13 +216,13 @@ fun NativeMovieCatalogScreen(
                     Icon(
                         imageVector = Icons.Default.Movie,
                         contentDescription = null,
-                        tint = MyBoxGold,
+                        tint = AppTheme.colors.accent,
                         modifier = Modifier.size(12.dp)
                     )
                     Text(
                         text = "TVBOX 4K 影音",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MyBoxGold,
+                        color = AppTheme.colors.accent,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
@@ -229,7 +231,7 @@ fun NativeMovieCatalogScreen(
                     text = "影视库",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
+                    color = AppTheme.colors.textPrimary
                 )
             }
 
@@ -241,8 +243,8 @@ fun NativeMovieCatalogScreen(
                 Box {
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = MyBoxSurfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                        color = AppTheme.colors.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier.clickable { sourceMenuExpanded = true }
                     ) {
                         Row(
@@ -254,12 +256,12 @@ fun NativeMovieCatalogScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(MyBoxGold)
+                                    .background(AppTheme.colors.accent)
                             )
                             Text(
                                 text = state.sources.firstOrNull { it.sourceId == state.selectedSourceId }?.name?.take(6) ?: "内置源",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MyBoxTextPrimary,
+                                color = AppTheme.colors.textPrimary,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -284,15 +286,15 @@ fun NativeMovieCatalogScreen(
                 // Search Icon
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (showSearchBar) MyBoxGold else MyBoxSurfaceRaised,
-                    border = if (showSearchBar) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxOutline),
+                    color = if (showSearchBar) AppTheme.colors.accent else AppTheme.colors.card,
+                    border = if (showSearchBar) null else androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                     modifier = Modifier.clickable { showSearchBar = !showSearchBar }
                 ) {
                     Box(modifier = Modifier.padding(8.dp)) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "搜索",
-                            tint = if (showSearchBar) Color(0xFF101217) else MyBoxTextPrimary,
+                            tint = if (showSearchBar) Color.White else AppTheme.colors.textPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -301,15 +303,15 @@ fun NativeMovieCatalogScreen(
                 // History Icon
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (showHistory) MyBoxGold else MyBoxSurfaceRaised,
-                    border = if (showHistory) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxOutline),
+                    color = if (showHistory) AppTheme.colors.accent else AppTheme.colors.card,
+                    border = if (showHistory) null else androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                     modifier = Modifier.clickable { showHistory = !showHistory }
                 ) {
                     Box(modifier = Modifier.padding(8.dp)) {
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = "搜索历史",
-                            tint = if (showHistory) Color(0xFF101217) else MyBoxTextPrimary,
+                            tint = if (showHistory) Color.White else AppTheme.colors.textPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -330,21 +332,21 @@ fun NativeMovieCatalogScreen(
                     value = state.keyword,
                     onValueChange = viewModel::updateKeyword,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("搜索全部影视内容…", color = MyBoxTextMuted) },
+                    placeholder = { Text("搜索全部影视内容…", color = AppTheme.colors.textMuted) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MyBoxSurfaceRaised,
-                        unfocusedContainerColor = MyBoxSurfaceRaised,
-                        focusedBorderColor = MyBoxGold,
-                        unfocusedBorderColor = MyBoxBorder,
-                        focusedTextColor = MyBoxTextPrimary,
-                        unfocusedTextColor = MyBoxTextPrimary,
+                        focusedContainerColor = AppTheme.colors.card,
+                        unfocusedContainerColor = AppTheme.colors.card,
+                        focusedBorderColor = AppTheme.colors.accent,
+                        unfocusedBorderColor = AppTheme.colors.border,
+                        focusedTextColor = AppTheme.colors.textPrimary,
+                        unfocusedTextColor = AppTheme.colors.textPrimary,
                     ),
                     shape = RoundedCornerShape(12.dp),
                     trailingIcon = {
                         if (state.keyword.isNotBlank()) {
                             IconButton(onClick = { viewModel.updateKeyword(""); viewModel.search() }) {
-                                Icon(Icons.Default.Close, contentDescription = "清空", tint = MyBoxTextMuted)
+                                Icon(Icons.Default.Close, contentDescription = "清空", tint = AppTheme.colors.textMuted)
                             }
                         }
                     },
@@ -353,7 +355,7 @@ fun NativeMovieCatalogScreen(
                 )
                 Button(
                     onClick = { viewModel.search() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MyBoxGold, contentColor = Color(0xFF101217)),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.accent, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("搜索", fontWeight = FontWeight.Bold)
@@ -391,15 +393,15 @@ fun NativeMovieCatalogScreen(
                     val isAllSelected = state.selectedCategoryId == null || state.selectedCategoryId == "all"
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isAllSelected) Color(0xFFEEF1F5) else MyBoxSurfaceRaised,
-                        border = if (isAllSelected) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                        color = if (isAllSelected) AppTheme.colors.accent else AppTheme.colors.card,
+                        border = if (isAllSelected) null else androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier.clickable { viewModel.selectCategory(null) }
                     ) {
                         Text(
                             text = "全部",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isAllSelected) Color(0xFF101217) else MyBoxTextSecondary,
+                            color = if (isAllSelected) Color.White else AppTheme.colors.textSecondary,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                         )
                     }
@@ -409,15 +411,15 @@ fun NativeMovieCatalogScreen(
                     val isSelected = state.selectedCategoryId == cat.id
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) Color(0xFFEEF1F5) else MyBoxSurfaceRaised,
-                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                        color = if (isSelected) AppTheme.colors.accent else AppTheme.colors.card,
+                        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier.clickable { viewModel.selectCategory(cat.id) }
                     ) {
                         Text(
                             text = cat.name,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) Color(0xFF101217) else MyBoxTextSecondary,
+                            color = if (isSelected) Color.White else AppTheme.colors.textSecondary,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                         )
                     }
@@ -436,15 +438,15 @@ fun NativeMovieCatalogScreen(
             Text(
                 text = "已展示 ${state.items.size} 部内容",
                 style = MaterialTheme.typography.bodySmall,
-                color = MyBoxTextMuted
+                color = AppTheme.colors.textMuted
             )
             if (state.loading) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = MyBoxGold)
-                    Text("加载中…", style = MaterialTheme.typography.bodySmall, color = MyBoxGold)
+                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = AppTheme.colors.accent)
+                    Text("加载中…", style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.accent)
                 }
             }
         }
@@ -462,8 +464,8 @@ fun NativeMovieCatalogScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CircularProgressIndicator(color = MyBoxGold)
-                        Text("正在读取影视内容…", color = MyBoxTextSecondary, fontSize = 13.sp)
+                        CircularProgressIndicator(color = AppTheme.colors.accent)
+                        Text("正在读取影视内容…", color = AppTheme.colors.textSecondary, fontSize = 13.sp)
                     }
                 }
             }
@@ -478,17 +480,17 @@ fun NativeMovieCatalogScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Movie, contentDescription = null, tint = MyBoxTextMuted, modifier = Modifier.size(36.dp))
+                        Icon(Icons.Default.Movie, contentDescription = null, tint = AppTheme.colors.textMuted, modifier = Modifier.size(36.dp))
                         Text(
                             if (state.keyword.isBlank()) "暂无影视条目" else "未找到与“${state.keyword}”相关的影片",
-                            color = MyBoxTextMuted,
+                            color = AppTheme.colors.textMuted,
                             fontSize = 14.sp
                         )
                         OutlinedButton(
                             onClick = { viewModel.refresh() },
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder)
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                         ) {
-                            Text("刷新重试", color = MyBoxTextPrimary)
+                            Text("刷新重试", color = AppTheme.colors.textPrimary)
                         }
                     }
                 }
@@ -521,9 +523,9 @@ fun NativeMovieCatalogScreen(
                                 OutlinedButton(
                                     onClick = { viewModel.loadNextPage() },
                                     enabled = !state.loading,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder)
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                                 ) {
-                                    Text(if (state.loading) "正在载入…" else "载入更多", color = MyBoxTextPrimary)
+                                    Text(if (state.loading) "正在载入…" else "载入更多", color = AppTheme.colors.textPrimary)
                                 }
                             }
                         }
@@ -550,8 +552,8 @@ private fun SangtianMovieCard(
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .clip(RoundedCornerShape(10.dp))
-                .background(MyBoxSurfaceRaised)
-                .border(1.dp, MyBoxBorder, RoundedCornerShape(10.dp))
+                .background(AppTheme.colors.card)
+                .border(1.dp, AppTheme.colors.border, RoundedCornerShape(10.dp))
         ) {
             AsyncImage(
                 model = movie.poster.ifBlank { movie.toJson().optString("vod_pic") },
@@ -573,7 +575,7 @@ private fun SangtianMovieCard(
                     text = "4K",
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxGold
+                    color = AppTheme.colors.accent
                 )
             }
 
@@ -585,14 +587,14 @@ private fun SangtianMovieCard(
                         .padding(5.dp)
                         .align(Alignment.TopEnd)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(MyBoxGold)
+                        .background(AppTheme.colors.accent)
                         .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = score,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF101217)
+                        color = Color.White
                     )
                 }
             }
@@ -616,14 +618,14 @@ private fun SangtianMovieCard(
             text = movie.title.ifBlank { "未命名" },
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
-            color = MyBoxTextPrimary,
+            color = AppTheme.colors.textPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             text = movie.category.ifBlank { "影视" },
             style = MaterialTheme.typography.labelSmall,
-            color = MyBoxTextMuted,
+            color = AppTheme.colors.textMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -653,10 +655,24 @@ private fun SangtianMovieDetailView(
     val region = json.optString("area").ifBlank { json.optString("region") }.ifBlank { "中国大陆" }
     val description = movie.description.ifBlank { json.optString("summary") }.ifBlank { json.optString("content") }.ifBlank { "暂无剧情简介。" }
 
+    var showOtherSourcesDialog by remember { mutableStateOf(false) }
+
+    if (showOtherSourcesDialog) {
+        OtherSourceSearchDialog(
+            title = movie.title,
+            currentSourceId = movie.sourceId,
+            onClose = { showOtherSourcesDialog = false },
+            onSelectMovie = { otherMovie: NativeMovieItem ->
+                showOtherSourcesDialog = false
+                onPlay()
+            }
+        )
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(MyBoxBackground),
+            .background(AppTheme.colors.background),
         contentPadding = PaddingValues(bottom = 84.dp)
     ) {
         // Hero Backdrop with back button & overlay
@@ -681,8 +697,8 @@ private fun SangtianMovieDetailView(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Black.copy(alpha = 0.4f),
-                                    Color(0xFF07080B).copy(alpha = 0.85f),
-                                    Color(0xFF07080B)
+                                    Color.Black.copy(alpha = 0.85f),
+                                    AppTheme.colors.background
                                 )
                             )
                         )
@@ -720,7 +736,7 @@ private fun SangtianMovieDetailView(
                         Text(
                             text = sourceName,
                             fontSize = 11.sp,
-                            color = MyBoxGold
+                            color = AppTheme.colors.accent
                         )
                     }
                 }
@@ -738,7 +754,7 @@ private fun SangtianMovieDetailView(
                             .width(88.dp)
                             .aspectRatio(2f / 3f)
                             .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, MyBoxBorder, RoundedCornerShape(8.dp))
+                            .border(1.dp, AppTheme.colors.border, RoundedCornerShape(8.dp))
                     ) {
                         AsyncImage(
                             model = movie.poster.ifBlank { json.optString("vod_pic") },
@@ -756,7 +772,7 @@ private fun SangtianMovieDetailView(
                             text = movie.title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MyBoxTextPrimary,
+                            color = AppTheme.colors.textPrimary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -768,22 +784,22 @@ private fun SangtianMovieDetailView(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                Icon(Icons.Default.Star, contentDescription = null, tint = MyBoxGold, modifier = Modifier.size(14.dp))
-                                Text(score, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MyBoxGold)
+                                Icon(Icons.Default.Star, contentDescription = null, tint = AppTheme.colors.accent, modifier = Modifier.size(14.dp))
+                                Text(score, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppTheme.colors.accent)
                             }
-                            Text("·", color = MyBoxTextMuted)
-                            Text(year, fontSize = 12.sp, color = MyBoxTextSecondary)
-                            Text("·", color = MyBoxTextMuted)
-                            Text(region, fontSize = 12.sp, color = MyBoxTextSecondary)
-                            Text("·", color = MyBoxTextMuted)
-                            Text(movie.category.ifBlank { "4K超清" }, fontSize = 12.sp, color = MyBoxTextSecondary)
+                            Text("·", color = AppTheme.colors.textMuted)
+                            Text(year, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
+                            Text("·", color = AppTheme.colors.textMuted)
+                            Text(region, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
+                            Text("·", color = AppTheme.colors.textMuted)
+                            Text(movie.category.ifBlank { "4K超清" }, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
                         }
                     }
                 }
             }
         }
 
-        // Action Buttons Row: 立即播放 + 加入收藏
+        // Action Buttons Row: 立即播放 + 搜同名 + 加入收藏
         item {
             Row(
                 modifier = Modifier
@@ -793,7 +809,7 @@ private fun SangtianMovieDetailView(
             ) {
                 Button(
                     onClick = onPlay,
-                    colors = ButtonDefaults.buttonColors(containerColor = MyBoxGold, contentColor = Color(0xFF101217)),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.accent, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -803,21 +819,31 @@ private fun SangtianMovieDetailView(
                 }
 
                 OutlinedButton(
+                    onClick = { showOtherSourcesDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.accent, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("搜同名", color = AppTheme.colors.accent, fontSize = 14.sp)
+                }
+
+                OutlinedButton(
                     onClick = onFavorite,
                     enabled = !favoriteSaving,
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (favoriteSaved) MyBoxHeart else MyBoxBorder)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (favoriteSaved) MyBoxHeart else AppTheme.colors.border)
                 ) {
                     Icon(
                         imageVector = if (favoriteSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = null,
-                        tint = if (favoriteSaved) MyBoxHeart else MyBoxTextSecondary,
+                        tint = if (favoriteSaved) MyBoxHeart else AppTheme.colors.textSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (favoriteSaved) "已收藏" else "收藏",
-                        color = if (favoriteSaved) MyBoxHeart else MyBoxTextPrimary
+                        color = if (favoriteSaved) MyBoxHeart else AppTheme.colors.textPrimary
                     )
                 }
             }
@@ -840,9 +866,9 @@ private fun SangtianMovieDetailView(
                         text = "选集播放 (${movie.episodes.size.coerceAtLeast(1)})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MyBoxTextPrimary
+                        color = AppTheme.colors.textPrimary
                     )
-                    Text("4K超清线路", style = MaterialTheme.typography.bodySmall, color = MyBoxGold)
+                    Text("4K超清线路", style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.accent)
                 }
 
                 if (movie.episodes.isNotEmpty()) {
@@ -854,8 +880,8 @@ private fun SangtianMovieDetailView(
                             val label = ep.optString("title").ifBlank { ep.optString("name") }.ifBlank { "第 ${index + 1} 集" }
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (index == 0) MyBoxGoldLight else MyBoxSurfaceRaised,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, if (index == 0) MyBoxGold else MyBoxBorder),
+                                color = if (index == 0) AppTheme.colors.accent.copy(alpha = 0.15f) else AppTheme.colors.card,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (index == 0) AppTheme.colors.accent else AppTheme.colors.border),
                                 modifier = Modifier.clickable { onPlay() }
                             ) {
                                 Row(
@@ -866,14 +892,14 @@ private fun SangtianMovieDetailView(
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = null,
-                                        tint = if (index == 0) MyBoxGold else MyBoxTextSecondary,
+                                        tint = if (index == 0) AppTheme.colors.accent else AppTheme.colors.textSecondary,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
                                         text = label,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (index == 0) MyBoxGold else MyBoxTextPrimary
+                                        color = if (index == 0) AppTheme.colors.accent else AppTheme.colors.textPrimary
                                     )
                                 }
                             }
@@ -882,8 +908,8 @@ private fun SangtianMovieDetailView(
                 } else {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = MyBoxSurfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                        color = AppTheme.colors.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier.clickable { onPlay() }
                     ) {
                         Row(
@@ -891,8 +917,8 @@ private fun SangtianMovieDetailView(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MyBoxGold)
-                            Text("正片 4K", color = MyBoxTextPrimary, fontWeight = FontWeight.Medium)
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AppTheme.colors.accent)
+                            Text("正片 4K", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -908,10 +934,10 @@ private fun SangtianMovieDetailView(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 if (director.isNotBlank() && director != "null") {
-                    Text("导演：$director", style = MaterialTheme.typography.bodySmall, color = MyBoxTextSecondary)
+                    Text("导演：$director", style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textSecondary)
                 }
                 if (actor.isNotBlank() && actor != "null") {
-                    Text("主演：$actor", style = MaterialTheme.typography.bodySmall, color = MyBoxTextSecondary)
+                    Text("主演：$actor", style = MaterialTheme.typography.bodySmall, color = AppTheme.colors.textSecondary)
                 }
             }
         }
@@ -928,18 +954,18 @@ private fun SangtianMovieDetailView(
                     text = "剧情简介",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MyBoxTextPrimary
+                    color = AppTheme.colors.textPrimary
                 )
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = MyBoxSurfaceRaised,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                    color = AppTheme.colors.card,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MyBoxTextSecondary,
+                        color = AppTheme.colors.textSecondary,
                         modifier = Modifier.padding(14.dp),
                         lineHeight = 20.sp
                     )
@@ -976,7 +1002,7 @@ private fun CatalogSearchHistoryPanel(
                 text = "搜索历史",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MyBoxTextPrimary
+                color = AppTheme.colors.textPrimary
             )
             if (records.isNotEmpty()) {
                 TextButton(onClick = onClearAll) {
@@ -992,15 +1018,15 @@ private fun CatalogSearchHistoryPanel(
                     .padding(vertical = 40.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("暂无搜索历史", color = MyBoxTextMuted)
+                Text("暂无搜索历史", color = AppTheme.colors.textMuted)
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(records, key = { it.searchId }) { rec ->
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = MyBoxSurfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MyBoxBorder),
+                        color = AppTheme.colors.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -1017,11 +1043,11 @@ private fun CatalogSearchHistoryPanel(
                                     .weight(1f)
                                     .clickable { onUse(rec.keyword) }
                             ) {
-                                Icon(Icons.Default.History, contentDescription = null, tint = MyBoxTextMuted, modifier = Modifier.size(16.dp))
-                                Text(rec.keyword, color = MyBoxTextPrimary, fontWeight = FontWeight.Medium)
+                                Icon(Icons.Default.History, contentDescription = null, tint = AppTheme.colors.textMuted, modifier = Modifier.size(16.dp))
+                                Text(rec.keyword, color = AppTheme.colors.textPrimary, fontWeight = FontWeight.Medium)
                             }
                             IconButton(onClick = { onDelete(rec.searchId) }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "删除", tint = MyBoxTextMuted, modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.Close, contentDescription = "删除", tint = AppTheme.colors.textMuted, modifier = Modifier.size(14.dp))
                             }
                         }
                     }

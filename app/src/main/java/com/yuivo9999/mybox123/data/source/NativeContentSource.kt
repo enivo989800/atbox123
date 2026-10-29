@@ -14,6 +14,7 @@ data class NativeContentSource(
     val type: Int = 0,
     val rawJson: String = "{}"
 ) {
+    val sourceRef: String get() = api.ifBlank { ext }
     fun toJson(): JSONObject = try {
         JSONObject(rawJson)
             .put("sourceId", sourceId)
