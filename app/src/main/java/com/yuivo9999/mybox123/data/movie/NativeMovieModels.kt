@@ -26,6 +26,7 @@ data class NativeMovieCategory(
 
 data class NativeMovieItem(
     val sourceId: String = "",
+    val sourceName: String = "",
     val sourceItemId: String = "",
     val contentId: String = "",
     val title: String = "",
@@ -47,6 +48,7 @@ data class NativeMovieItem(
         return try {
             val json = JSONObject(rawJson)
             json.put("sourceId", sourceId)
+            json.put("sourceName", sourceName)
             json.put("sourceItemId", sourceItemId)
             json.put("contentId", contentId)
             json.put("title", title)
@@ -84,6 +86,7 @@ data class NativeMovieItem(
             }
             return NativeMovieItem(
                 sourceId = json.optString("sourceId"),
+                sourceName = json.optString("sourceName"),
                 sourceItemId = json.optString("sourceItemId").ifBlank { json.optString("vod_id") },
                 contentId = json.optString("contentId").ifBlank { json.optString("vod_id") },
                 title = json.optString("title").ifBlank { json.optString("vod_name") },

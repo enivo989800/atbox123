@@ -29,8 +29,12 @@ import com.yuivo9999.mybox123.data.movie.NativeMovieItem
 import com.yuivo9999.mybox123.data.source.NativeContentSource
 import com.yuivo9999.mybox123.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 data class SourceSearchResultGroup(
     val sourceId: String,
@@ -54,37 +58,55 @@ fun OtherSourceSearchDialog(
     var resultGroups by remember { mutableStateOf<List<SourceSearchResultGroup>>(emptyList()) }
     var failedSourcesCount by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(title) {
+    val cleanTitle = remember(title) {
+        title.replace(Regex("[\\[\\(（【].*?[\\]\\)）】]"), "").trim().ifBlank { title }
+    }
+
+    LaunchedEffect(cleanTitle) {
         scope.launch {
             loading = true
             withContext(Dispatchers.IO) {
                 try {
                     val services = app.awaitServices()
-                    val sources = services.contentSourceRepository.getAll()
+                    val externalSources = services.contentSourceRepository.getAll()
                         .filter { it.sourceType == "movie" && it.enabled && it.sourceId != currentSourceId }
+                    val builtinSource = NativeContentSource.fromJson(
+                        JSONObject()
+                            .put("sourceId", "builtin")
+                            .put("name", "内置精选源")
+                            .put("sourceType", "movie")
+                            .put("enabled", true),
+                        -1
+                    )
+                    val searchSources = if (currentSourceId != "builtin") {
+                        listOf(builtinSource) + externalSources
+                    } else {
+                        externalSources
+                    }
 
-                    val groups = mutableListOf<SourceSearchResultGroup>()
-                    var fails = 0
-
-                    for (src in sources.take(8)) {
-                        try {
-                            val page = services.movieSourceService.search(src.sourceId, title)
-                            val items = page.items
-                            if (items.isNotEmpty()) {
-                                groups.add(
-                                    SourceSearchResultGroup(
-                                        sourceId = src.sourceId,
-                                        sourceName = src.name,
-                                        items = items.take(4)
-                                    )
-                                )
+                    val deferreds = coroutineScope {
+                        searchSources.map { src ->
+                            async {
+                                try {
+                                    val page = services.movieSourceService.search(src.sourceId, cleanTitle)
+                                    val items = page.items
+                                    if (items.isNotEmpty()) {
+                                        SourceSearchResultGroup(
+                                            sourceId = src.sourceId,
+                                            sourceName = src.name,
+                                            items = items.take(6)
+                                        )
+                                    } else null
+                                } catch (_: Exception) {
+                                    null
+                                }
                             }
-                        } catch (_: Exception) {
-                            fails++
                         }
                     }
-                    resultGroups = groups
-                    failedSourcesCount = fails
+
+                    val results = deferreds.awaitAll().filterNotNull()
+                    resultGroups = results
+                    failedSourcesCount = (searchSources.size - results.size).coerceAtLeast(0)
                 } catch (_: Exception) {
                 } finally {
                     loading = false

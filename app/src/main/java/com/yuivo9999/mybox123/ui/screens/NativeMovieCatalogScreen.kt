@@ -187,6 +187,7 @@ fun NativeMovieCatalogScreen(
                 if (returnToHomeAfterDetail) onReturnToHomeAfterDetail()
             },
             onPlay = { onPlayMovie(state.detailMovie!!) },
+            onPlayMovie = onPlayMovie,
             onFavorite = viewModel::addDetailToFavorites,
             modifier = modifier
         )
@@ -643,6 +644,7 @@ private fun SangtianMovieDetailView(
     favoriteSaving: Boolean,
     onBack: () -> Unit,
     onPlay: () -> Unit,
+    onPlayMovie: ((NativeMovieItem) -> Unit)? = null,
     onFavorite: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -664,7 +666,11 @@ private fun SangtianMovieDetailView(
             onClose = { showOtherSourcesDialog = false },
             onSelectMovie = { otherMovie: NativeMovieItem ->
                 showOtherSourcesDialog = false
-                onPlay()
+                if (onPlayMovie != null) {
+                    onPlayMovie(otherMovie)
+                } else {
+                    onPlay()
+                }
             }
         )
     }

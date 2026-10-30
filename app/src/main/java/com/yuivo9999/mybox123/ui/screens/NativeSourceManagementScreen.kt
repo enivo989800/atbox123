@@ -427,11 +427,48 @@ fun NativeSourceManagementScreen(
                             ref.startsWith("#EXTM3U", ignoreCase = true) ||
                             ref.startsWith("{") ||
                             ref.startsWith("[")
+                        if (ref.trim().startsWith("{") && ref.contains("\"sites\"")) {
+                            try {
+                                val cfg = JSONObject(ref.trim())
+                                val sitesArr = cfg.optJSONArray("sites")
+                                if (sitesArr != null && sitesArr.length() > 0) {
+                                    var addedCount = 0
+                                    for (i in 0 until sitesArr.length()) {
+                                        val s = sitesArr.optJSONObject(i) ?: continue
+                                        val sName = s.optString("name").ifBlank { "影视源 ${addedCount + 1}" }
+                                        val sApi = s.optString("api")
+                                        val sKey = s.optString("key").ifBlank { "site_${System.currentTimeMillis()}_$i" }
+                                        if (sApi.startsWith("http")) {
+                                            repo.add(NativeContentSource.fromJson(JSONObject()
+                                                .put("sourceId", sKey)
+                                                .put("name", sName)
+                                                .put("sourceType", "movie")
+                                                .put("sourceRef", sApi)
+                                                .put("api", sApi)
+                                                .put("type", s.optInt("type", 1))
+                                                .put("enabled", true)
+                                            ))
+                                            addedCount++
+                                        }
+                                    }
+                                    if (addedCount > 0) {
+                                        withContext(Dispatchers.Main) {
+                                            showAddDialog = false
+                                            refresh()
+                                            noticeMessage = "已从配置成功添加 $addedCount 个影视源"
+                                        }
+                                        return@launch
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
+
                         val obj = JSONObject()
                             .put("sourceId", "src_${System.currentTimeMillis()}")
-                            .put("name", name)
+                            .put("name", name.ifBlank { if (type == "movie") "影视源" else "直播源" })
                             .put("sourceType", type)
                             .put("sourceRef", ref)
+                            .put("api", ref)
                             .put("content", if (isContent) ref else "")
                             .put("liveMode", liveMode)
                             .put("enabled", true)
@@ -445,7 +482,7 @@ fun NativeSourceManagementScreen(
                         withContext(Dispatchers.Main) {
                             showAddDialog = false
                             refresh()
-                            noticeMessage = "已成功添加内容源: $name"
+                            noticeMessage = "已成功添加内容源: ${newSource.name}"
                         }
                     }
                 }
@@ -461,7 +498,36 @@ fun NativeSourceManagementScreen(
                         try {
                             val repo = app.awaitServices().contentSourceRepository
                             val trimmed = text.trim()
-                            if (trimmed.contains("#genre#", ignoreCase = true) || trimmed.startsWith("#EXTM3U", ignoreCase = true)) {
+                            if (trimmed.startsWith("{") && trimmed.contains("\"sites\"")) {
+                                val cfg = JSONObject(trimmed)
+                                val sitesArr = cfg.optJSONArray("sites")
+                                var count = 0
+                                if (sitesArr != null) {
+                                    for (i in 0 until sitesArr.length()) {
+                                        val s = sitesArr.optJSONObject(i) ?: continue
+                                        val sName = s.optString("name").ifBlank { "影视源 ${count + 1}" }
+                                        val sApi = s.optString("api")
+                                        val sKey = s.optString("key").ifBlank { "site_${System.currentTimeMillis()}_$i" }
+                                        if (sApi.startsWith("http")) {
+                                            repo.add(NativeContentSource.fromJson(JSONObject()
+                                                .put("sourceId", sKey)
+                                                .put("name", sName)
+                                                .put("sourceType", "movie")
+                                                .put("sourceRef", sApi)
+                                                .put("api", sApi)
+                                                .put("type", s.optInt("type", 1))
+                                                .put("enabled", true)
+                                            ))
+                                            count++
+                                        }
+                                    }
+                                }
+                                withContext(Dispatchers.Main) {
+                                    showImportDialog = false
+                                    refresh()
+                                    noticeMessage = "成功从配置导入 $count 个影视源"
+                                }
+                            } else if (trimmed.contains("#genre#", ignoreCase = true) || trimmed.startsWith("#EXTM3U", ignoreCase = true)) {
                                 val mode = if (trimmed.contains("#genre#", ignoreCase = true)) "TV1 专用直播 (#genre#)" else "标准 M3U 直播"
                                 val obj = JSONObject()
                                     .put("sourceId", "import_${System.currentTimeMillis()}")
@@ -495,6 +561,7 @@ fun NativeSourceManagementScreen(
                                             .put("name", name)
                                             .put("sourceType", type)
                                             .put("sourceRef", url)
+                                            .put("api", url)
                                             .put("liveMode", mode)
                                             .put("enabled", true)
                                         repo.add(NativeContentSource.fromJson(obj))

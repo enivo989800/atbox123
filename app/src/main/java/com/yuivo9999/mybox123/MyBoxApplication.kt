@@ -22,13 +22,14 @@ class MyBoxApplication : Application() {
     private val services by lazy {
         val userRepo = NativeUserDataRepository(this)
         val sourceRepo = NativeContentSourceRepository(this)
+        val http = NativeHttpClient()
         AppServices(
             userDataRepository = userRepo,
             contentSourceRepository = sourceRepo,
             sourceManagementService = NativeSourceManagementService(sourceRepo),
-            movieSourceService = NativeMovieSourceService(),
+            movieSourceService = NativeMovieSourceService(sourceRepo, http),
             liveDescriptorService = NativeLiveDescriptorService(),
-            httpClient = NativeHttpClient(),
+            httpClient = http,
             storage = userRepo,
         )
     }

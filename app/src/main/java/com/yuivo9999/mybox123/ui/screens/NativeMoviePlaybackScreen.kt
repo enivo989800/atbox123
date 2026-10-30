@@ -82,11 +82,11 @@ fun NativeMoviePlaybackScreen(
     var currentMovie by remember {
         mutableStateOf(
             if (movie.episodes.isNotEmpty()) movie
-            else {
+            else if (sourceId == "builtin" || sourceId.isBlank()) {
                 StaticCatalogData.movies.firstOrNull {
                     it.title.equals(movie.title, ignoreCase = true) || it.contentId == movie.contentId
                 } ?: movie
-            }
+            } else movie
         )
     }
 
@@ -97,6 +97,27 @@ fun NativeMoviePlaybackScreen(
     var isPlaying by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isFullscreen by remember { mutableStateOf(false) }
+    var isDetailLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentMovie.sourceId, currentMovie.sourceItemId) {
+        val effectiveSourceId = currentMovie.sourceId.ifBlank { sourceId }
+        val lookupId = currentMovie.sourceItemId.ifBlank { currentMovie.contentId }
+        if (currentMovie.episodes.isEmpty() && effectiveSourceId.isNotBlank() && effectiveSourceId != "builtin" && lookupId.isNotBlank()) {
+            isDetailLoading = true
+            withContext(Dispatchers.IO) {
+                try {
+                    val full = application.awaitServices().movieSourceService.getDetail(effectiveSourceId, lookupId)
+                    if (full != null && full.episodes.isNotEmpty()) {
+                        currentMovie = full
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "获取剧集信息失败: ${e.message}"
+                } finally {
+                    isDetailLoading = false
+                }
+            }
+        }
+    }
 
     // Dialogs & Drawers
     var showDrawer by remember { mutableStateOf(false) }
@@ -533,13 +554,13 @@ fun NativeMoviePlaybackScreen(
                 }
 
                 // Center spinner or error
-                if (isBuffering && errorMessage == null) {
+                if ((isBuffering || isDetailLoading) && errorMessage == null) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         CircularProgressIndicator(color = Color(0xFFF59E0B), modifier = Modifier.size(32.dp))
-                        Text("正在缓冲…", color = Color.White, fontSize = 11.sp)
+                        Text(if (isDetailLoading) "正在解析剧集线路…" else "正在缓冲…", color = Color.White, fontSize = 11.sp)
                     }
                 }
 
