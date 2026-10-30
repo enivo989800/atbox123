@@ -21,6 +21,30 @@ object StaticCatalogData {
     val movies: List<NativeMovieItem> by lazy {
         listOf(
             createMovie(
+                contentId = "static_movie_099",
+                title = "黑客帝国",
+                category = "电影",
+                sourceCategoryName = "科幻片",
+                year = "1999",
+                region = "美国",
+                rating = "9.1",
+                updateInfo = "4K修复版",
+                poster = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80",
+                backdrop = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
+                description = "1999年经典科幻巨作。网络黑客尼奥对看似正常的现实世界产生怀疑，在神秘人墨菲斯的指引下发现了母体（Matrix）的存在与人类被AI奴役的惊天真相。",
+                director = "沃卓斯基姐妹",
+                actors = listOf("基努·里维斯", "劳伦斯·菲什伯恩", "凯瑞-安·莫斯", "雨果·维文"),
+                episodes = listOf(
+                    EpisodeDef(
+                        title = "正片 4K",
+                        url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+                        candidates = listOf(
+                            CandidateDef("1999科幻经典专线", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4")
+                        )
+                    )
+                )
+            ),
+            createMovie(
                 contentId = "static_movie_001",
                 title = "流浪地球2",
                 category = "电影",

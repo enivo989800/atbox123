@@ -360,13 +360,16 @@ class NativeMovieSourceService(
         sourceId: String,
         page: Int = 1,
         pageSize: Int = 30,
-        categoryId: String? = null
+        categoryId: String? = null,
+        year: String? = null,
+        area: String? = null,
+        genre: String? = null
     ): NativeMoviePage = withContext(Dispatchers.IO) {
         val source = findSource(sourceId)
         if (source == null) {
             val all = StaticCatalogData.movies
             val filtered = all.filter { movie ->
-                categoryId == null || categoryId == "all" || when (categoryId) {
+                val catMatches = categoryId == null || categoryId == "all" || when (categoryId) {
                     "movie" -> movie.category == "电影"
                     "series" -> movie.category == "电视剧"
                     "anime" -> movie.category == "动漫"
@@ -374,6 +377,20 @@ class NativeMovieSourceService(
                     "short_drama" -> movie.category == "短剧"
                     else -> movie.category.contains(categoryId)
                 }
+                val ym = year.isNullOrBlank() || year == "全部" || movie.year.contains(year) ||
+                    (year == "90年代" && movie.year.startsWith("199")) ||
+                    (year == "80年代" && movie.year.startsWith("198")) ||
+                    (year == "2000年代" && movie.year.startsWith("200")) ||
+                    (year == "2010年代" && movie.year.startsWith("201"))
+                val am = area.isNullOrBlank() || area == "全部" ||
+                    movie.region.contains(area) ||
+                    (area == "美国" && (movie.region.contains("美") || movie.region.contains("欧美"))) ||
+                    (area == "欧美" && (movie.region.contains("美") || movie.region.contains("欧美")))
+                val gm = genre.isNullOrBlank() || genre == "全部" ||
+                    movie.sourceCategoryName.contains(genre) ||
+                    movie.category.contains(genre) ||
+                    movie.description.contains(genre)
+                catMatches && ym && am && gm
             }
             return@withContext NativeMoviePage(
                 sourceId = sourceId,
@@ -396,6 +413,21 @@ class NativeMovieSourceService(
         )
         if (!categoryId.isNullOrBlank() && categoryId != "all") {
             params["t"] = categoryId
+        }
+        if (!year.isNullOrBlank() && year != "全部") {
+            params["year"] = when (year) {
+                "90年代" -> "1990"
+                "80年代" -> "1980"
+                "2000年代" -> "2000"
+                "2010年代" -> "2010"
+                else -> year
+            }
+        }
+        if (!area.isNullOrBlank() && area != "全部") {
+            params["area"] = area
+        }
+        if (!genre.isNullOrBlank() && genre != "全部") {
+            params["class"] = genre
         }
 
         var requestUrl = buildUrl(apiUrl, params)
@@ -490,6 +522,28 @@ class NativeMovieSourceService(
                             rawJson = obj.toString()
                         )
                     )
+                }
+            }
+
+            // Fallback: If structured filtering returned 0 items but user requested year/genre/area, search by keyword fallback
+            if (items.isEmpty() && (!year.isNullOrBlank() || !genre.isNullOrBlank() || !area.isNullOrBlank())) {
+                val searchTerms = listOfNotNull(
+                    year?.takeIf { it.isNotBlank() && it != "全部" },
+                    genre?.takeIf { it.isNotBlank() && it != "全部" },
+                    area?.takeIf { it.isNotBlank() && it != "全部" }
+                )
+                if (searchTerms.isNotEmpty()) {
+                    val combinedTerm = searchTerms.joinToString(" ")
+                    val fallbackSearch = search(sourceId, combinedTerm, page, pageSize, categoryId)
+                    if (fallbackSearch.items.isNotEmpty()) {
+                        return@withContext fallbackSearch
+                    }
+                    if (searchTerms.size > 1) {
+                        val firstTermSearch = search(sourceId, searchTerms.first(), page, pageSize, categoryId)
+                        if (firstTermSearch.items.isNotEmpty()) {
+                            return@withContext firstTermSearch
+                        }
+                    }
                 }
             }
 

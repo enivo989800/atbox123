@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
@@ -118,9 +119,13 @@ fun NativeMovieCatalogScreen(
     var showHistory by rememberSaveable { mutableStateOf(false) }
     var confirmClearSearchHistory by rememberSaveable { mutableStateOf(false) }
 
-    // BackHandler for Detail or Search History
-    BackHandler(enabled = state.detailOpen || showHistory || showSearchBar) {
-        if (state.detailOpen) {
+    // BackHandler for Detail, Filter Sheet, Search History, or Search Bar
+    BackHandler(enabled = state.detailOpen || state.filterSheetOpen || state.customYearDialogOpen || showHistory || showSearchBar) {
+        if (state.customYearDialogOpen) {
+            viewModel.closeCustomYearDialog()
+        } else if (state.filterSheetOpen) {
+            viewModel.closeFilterSheet()
+        } else if (state.detailOpen) {
             viewModel.closeDetail()
             if (returnToHomeAfterDetail) onReturnToHomeAfterDetail()
         } else if (showHistory) {
@@ -317,6 +322,44 @@ fun NativeMovieCatalogScreen(
                         )
                     }
                 }
+
+                // Filter Icon with Badge
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (state.filterCriteria.isActive || state.filterSheetOpen) AppTheme.colors.accent else AppTheme.colors.card,
+                    border = if (state.filterCriteria.isActive || state.filterSheetOpen) null else androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                    modifier = Modifier.clickable { viewModel.openFilterSheet() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FilterAlt,
+                            contentDescription = "多维筛选",
+                            tint = if (state.filterCriteria.isActive || state.filterSheetOpen) Color.White else AppTheme.colors.textPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (state.filterCriteria.activeCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(if (state.filterCriteria.isActive || state.filterSheetOpen) Color.White else AppTheme.colors.accent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = state.filterCriteria.activeCount.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (state.filterCriteria.isActive || state.filterSheetOpen) AppTheme.colors.accent else Color.White
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -428,6 +471,62 @@ fun NativeMovieCatalogScreen(
             }
         }
 
+        // 4.5 Active Filters Pills Bar
+        if (state.filterCriteria.isActive) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                item {
+                    Text(
+                        text = "当前筛选:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppTheme.colors.textMuted
+                    )
+                }
+                if (!state.filterCriteria.year.isNullOrBlank() && state.filterCriteria.year != "全部") {
+                    item {
+                        ActiveFilterPill(
+                            text = "${state.filterCriteria.year}年",
+                            onClear = { viewModel.clearYearFilter() }
+                        )
+                    }
+                }
+                if (!state.filterCriteria.area.isNullOrBlank() && state.filterCriteria.area != "全部") {
+                    item {
+                        ActiveFilterPill(
+                            text = state.filterCriteria.area!!,
+                            onClear = { viewModel.clearAreaFilter() }
+                        )
+                    }
+                }
+                if (!state.filterCriteria.genre.isNullOrBlank() && state.filterCriteria.genre != "全部") {
+                    item {
+                        ActiveFilterPill(
+                            text = state.filterCriteria.genre!!,
+                            onClear = { viewModel.clearGenreFilter() }
+                        )
+                    }
+                }
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = AppTheme.colors.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                        modifier = Modifier.clickable { viewModel.resetFilters() }
+                    ) {
+                        Text(
+                            text = "重置",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppTheme.colors.accent,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
+
         // 5. Status / Content Count Bar
         Row(
             modifier = Modifier
@@ -533,6 +632,57 @@ fun NativeMovieCatalogScreen(
                     }
                 }
             }
+        }
+
+        if (state.filterSheetOpen) {
+            MovieFilterBottomSheet(
+                currentCriteria = state.filterCriteria,
+                availableCategories = state.categories,
+                onDismiss = viewModel::closeFilterSheet,
+                onApply = viewModel::applyFilter,
+                onOpenCustomYearDialog = viewModel::openCustomYearDialog
+            )
+        }
+
+        if (state.customYearDialogOpen) {
+            CustomYearInputDialog(
+                initialYear = state.filterCriteria.year,
+                onDismiss = viewModel::closeCustomYearDialog,
+                onConfirm = viewModel::setCustomYear
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActiveFilterPill(
+    text: String,
+    onClear: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = AppTheme.colors.accent.copy(alpha = 0.15f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accent.copy(alpha = 0.4f))
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = AppTheme.colors.accent
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "移除筛选",
+                tint = AppTheme.colors.accent,
+                modifier = Modifier
+                    .size(14.dp)
+                    .clickable(onClick = onClear)
+            )
         }
     }
 }

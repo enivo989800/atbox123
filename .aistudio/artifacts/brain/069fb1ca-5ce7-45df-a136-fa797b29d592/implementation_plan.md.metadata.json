@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for multi-dimensional movie filtering (Year, Type, Region, Genre) via CMS server-side query parameters, a dedicated BottomSheet filter modal, custom year input dialog, and search fallback.",
+  "updatedAt":  "2026-10-30T13:10:02.280001699Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

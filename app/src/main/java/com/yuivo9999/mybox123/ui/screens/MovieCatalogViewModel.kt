@@ -83,8 +83,96 @@ class MovieCatalogViewModel(
 
     fun selectCategory(categoryId: String?) {
         val normalized = categoryId?.trim()?.takeIf { it.isNotEmpty() }
-        if (_uiState.value.selectedCategoryId == normalized) return
-        _uiState.update { it.copy(selectedCategoryId = normalized, items = emptyList(), page = 1, total = 0, error = null) }
+        if (_uiState.value.selectedCategoryId == normalized && _uiState.value.filterCriteria.categoryId == normalized) return
+        _uiState.update {
+            it.copy(
+                selectedCategoryId = normalized,
+                filterCriteria = it.filterCriteria.copy(categoryId = normalized),
+                items = emptyList(),
+                page = 1,
+                total = 0,
+                error = null
+            )
+        }
+        loadPage(reset = true)
+    }
+
+    fun openFilterSheet() {
+        _uiState.update { it.copy(filterSheetOpen = true) }
+    }
+
+    fun closeFilterSheet() {
+        _uiState.update { it.copy(filterSheetOpen = false) }
+    }
+
+    fun openCustomYearDialog() {
+        _uiState.update { it.copy(customYearDialogOpen = true) }
+    }
+
+    fun closeCustomYearDialog() {
+        _uiState.update { it.copy(customYearDialogOpen = false) }
+    }
+
+    fun applyFilter(criteria: MovieFilterCriteria) {
+        _uiState.update {
+            it.copy(
+                filterCriteria = criteria,
+                selectedCategoryId = criteria.categoryId,
+                filterSheetOpen = false,
+                items = emptyList(),
+                page = 1,
+                total = 0,
+                error = null
+            )
+        }
+        loadPage(reset = true)
+    }
+
+    fun setCustomYear(year: String) {
+        val y = year.trim()
+        val updated = _uiState.value.filterCriteria.copy(year = y.ifEmpty { null })
+        _uiState.update {
+            it.copy(
+                filterCriteria = updated,
+                customYearDialogOpen = false,
+                items = emptyList(),
+                page = 1,
+                total = 0,
+                error = null
+            )
+        }
+        loadPage(reset = true)
+    }
+
+    fun clearYearFilter() {
+        val updated = _uiState.value.filterCriteria.copy(year = null)
+        _uiState.update { it.copy(filterCriteria = updated, items = emptyList(), page = 1, total = 0) }
+        loadPage(reset = true)
+    }
+
+    fun clearAreaFilter() {
+        val updated = _uiState.value.filterCriteria.copy(area = null)
+        _uiState.update { it.copy(filterCriteria = updated, items = emptyList(), page = 1, total = 0) }
+        loadPage(reset = true)
+    }
+
+    fun clearGenreFilter() {
+        val updated = _uiState.value.filterCriteria.copy(genre = null)
+        _uiState.update { it.copy(filterCriteria = updated, items = emptyList(), page = 1, total = 0) }
+        loadPage(reset = true)
+    }
+
+    fun resetFilters() {
+        _uiState.update {
+            it.copy(
+                filterCriteria = MovieFilterCriteria(),
+                selectedCategoryId = null,
+                items = emptyList(),
+                page = 1,
+                total = 0,
+                error = null
+            )
+        }
         loadPage(reset = true)
     }
 
@@ -398,21 +486,35 @@ class MovieCatalogViewModel(
             try {
                 val result: NativeMoviePage = if (sourceId == "builtin") {
                     val all = com.yuivo9999.mybox123.data.movie.StaticCatalogData.movies
+                    val criteria = snapshot.filterCriteria
+                    val targetCat = criteria.categoryId ?: snapshot.selectedCategoryId
                     val filtered = all.filter { movie ->
-                        val catMatches = snapshot.selectedCategoryId == null || snapshot.selectedCategoryId == "all" ||
-                            when (snapshot.selectedCategoryId) {
-                                "movie" -> movie.category == "电影"
-                                "series" -> movie.category == "电视剧"
-                                "anime" -> movie.category == "动漫"
-                                "variety" -> movie.category == "综艺"
-                                "short_drama" -> movie.category == "短剧"
-                                else -> movie.category.contains(snapshot.selectedCategoryId!!)
-                            }
+                        val catMatches = targetCat == null || targetCat == "all" || when (targetCat) {
+                            "movie" -> movie.category == "电影"
+                            "series" -> movie.category == "电视剧"
+                            "anime" -> movie.category == "动漫"
+                            "variety" -> movie.category == "综艺"
+                            "short_drama" -> movie.category == "短剧"
+                            else -> movie.category.contains(targetCat)
+                        }
+                        val ym = criteria.year.isNullOrBlank() || criteria.year == "全部" || movie.year.contains(criteria.year!!) ||
+                            (criteria.year == "90年代" && movie.year.startsWith("199")) ||
+                            (criteria.year == "80年代" && movie.year.startsWith("198")) ||
+                            (criteria.year == "2000年代" && movie.year.startsWith("200")) ||
+                            (criteria.year == "2010年代" && movie.year.startsWith("201"))
+                        val am = criteria.area.isNullOrBlank() || criteria.area == "全部" ||
+                            movie.region.contains(criteria.area!!) ||
+                            (criteria.area == "美国" && (movie.region.contains("美") || movie.region.contains("欧美"))) ||
+                            (criteria.area == "欧美" && (movie.region.contains("美") || movie.region.contains("欧美")))
+                        val gm = criteria.genre.isNullOrBlank() || criteria.genre == "全部" ||
+                            movie.sourceCategoryName.contains(criteria.genre!!) ||
+                            movie.category.contains(criteria.genre!!) ||
+                            movie.description.contains(criteria.genre!!)
                         val kwMatches = snapshot.keyword.isBlank() ||
                             movie.title.contains(snapshot.keyword, ignoreCase = true) ||
                             movie.category.contains(snapshot.keyword, ignoreCase = true) ||
                             movie.description.contains(snapshot.keyword, ignoreCase = true)
-                        catMatches && kwMatches
+                        catMatches && ym && am && gm && kwMatches
                     }
                     NativeMoviePage(
                         sourceId = "builtin",
@@ -424,10 +526,19 @@ class MovieCatalogViewModel(
                     )
                 } else {
                     val service = application.awaitServices().movieSourceService
+                    val criteria = snapshot.filterCriteria
+                    val effectiveCategoryId = criteria.categoryId ?: snapshot.selectedCategoryId
                     if (snapshot.keyword.isBlank()) {
-                        service.getList(sourceId = sourceId, page = page, categoryId = snapshot.selectedCategoryId)
+                        service.getList(
+                            sourceId = sourceId,
+                            page = page,
+                            categoryId = effectiveCategoryId,
+                            year = criteria.year,
+                            area = criteria.area,
+                            genre = criteria.genre
+                        )
                     } else {
-                        service.search(sourceId = sourceId, keyword = snapshot.keyword, page = page, categoryId = snapshot.selectedCategoryId)
+                        service.search(sourceId = sourceId, keyword = snapshot.keyword, page = page, categoryId = effectiveCategoryId)
                     }
                 }
                 if (generation == requestGeneration) {
@@ -446,6 +557,29 @@ class MovieCatalogViewModel(
             }
         }
     }
+}
+
+data class MovieFilterCriteria(
+    val categoryId: String? = null,
+    val year: String? = null,
+    val area: String? = null,
+    val genre: String? = null,
+) {
+    val isActive: Boolean
+        get() = (!categoryId.isNullOrBlank() && categoryId != "all") ||
+                (!year.isNullOrBlank() && year != "全部") ||
+                (!area.isNullOrBlank() && area != "全部") ||
+                (!genre.isNullOrBlank() && genre != "全部")
+
+    val activeCount: Int
+        get() {
+            var count = 0
+            if (!categoryId.isNullOrBlank() && categoryId != "all") count++
+            if (!year.isNullOrBlank() && year != "全部") count++
+            if (!area.isNullOrBlank() && area != "全部") count++
+            if (!genre.isNullOrBlank() && genre != "全部") count++
+            return count
+        }
 }
 
 data class MovieCatalogUiState(
@@ -475,6 +609,9 @@ data class MovieCatalogUiState(
     val detailFavoriteSaving: Boolean = false,
     val detailFavoriteSaved: Boolean = false,
     val navigationError: String? = null,
+    val filterCriteria: MovieFilterCriteria = MovieFilterCriteria(),
+    val filterSheetOpen: Boolean = false,
+    val customYearDialogOpen: Boolean = false,
 )
 
 private const val MAX_SEARCH_HISTORY = 50
