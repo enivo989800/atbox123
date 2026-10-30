@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for multi-dimensional movie filtering (Year, Type, Region, Genre) via CMS server-side query parameters, a dedicated BottomSheet filter modal, custom year input dialog, and search fallback.",
-  "updatedAt":  "2026-10-30T13:10:02.280001699Z",
+  "summary":  "Implementation plan for 60s deep buffer LoadControl, real-time download bandwidth speed calculation (KB/s), landscape fullscreen playback with gesture controls (brightness, volume, lock), and UI state synchronization.",
+  "updatedAt":  "2026-10-30T13:39:28.705395351Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

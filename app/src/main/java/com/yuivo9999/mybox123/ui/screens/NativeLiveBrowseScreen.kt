@@ -1,6 +1,8 @@
 package com.yuivo9999.mybox123.ui.screens
 
+import android.app.Activity
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -23,6 +25,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.*
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -115,14 +120,60 @@ fun NativeLiveBrowseScreen(
     var currentAspectRatioMode by remember { mutableIntStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
     var aspectRatioName by remember { mutableStateOf("16:9") }
 
+    // Landscape Fullscreen & Speed States
+    var isLandscapeFullscreen by remember { mutableStateOf(false) }
+    var networkSpeedText by remember { mutableStateOf("测速中…") }
+    val activity = context as? Activity
+
+    fun enterLandscapeFullscreen() {
+        isLandscapeFullscreen = true
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        activity?.window?.let { win ->
+            val insets = WindowCompat.getInsetsController(win, win.decorView)
+            insets.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insets.hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    fun exitLandscapeFullscreen() {
+        isLandscapeFullscreen = false
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.window?.let { win ->
+            val insets = WindowCompat.getInsetsController(win, win.decorView)
+            insets.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     // Favorites
     var favoriteChannelIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
-    // ExoPlayer
+    // BandwidthMeter & 60-Second Deep Buffer LoadControl
+    val bandwidthMeter = remember {
+        androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Builder(context).build()
+    }
+    val liveLoadControl = remember {
+        androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 15_000,
+                /* maxBufferMs = */ 60_000,
+                /* bufferForPlaybackMs = */ 1_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 3_000
+            )
+            .setBackBuffer(
+                /* backBufferDurationMs = */ 30_000,
+                /* retainBackBufferFromKeyframe = */ true
+            )
+            .build()
+    }
+
+    // ExoPlayer with 60s load control and bandwidth meter
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-        }
+        ExoPlayer.Builder(context)
+            .setLoadControl(liveLoadControl)
+            .setBandwidthMeter(bandwidthMeter)
+            .build().apply {
+                playWhenReady = true
+            }
     }
 
     // Aspect ratio toggle
@@ -143,7 +194,7 @@ fun NativeLiveBrowseScreen(
         }
     }
 
-    // Clock and watch timer update loop
+    // Clock, watch timer, and real-time bandwidth update loop
     LaunchedEffect(isPlayingChannel) {
         val dateFormat = SimpleDateFormat("yyyy年MM月dd日 EEEE", Locale.CHINA)
         val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.CHINA)
@@ -153,6 +204,15 @@ fun NativeLiveBrowseScreen(
             currentTimeString = timeFormat.format(now)
             if (isPlayingChannel && exoPlayer.isPlaying) {
                 watchedSeconds++
+                val bitrate = bandwidthMeter.bitrateEstimate
+                if (bitrate > 0) {
+                    val bytesPerSec = bitrate / 8.0
+                    networkSpeedText = if (bytesPerSec >= 1024 * 1024) {
+                        String.format(Locale.CHINA, "%.1f MB/s", bytesPerSec / (1024.0 * 1024.0))
+                    } else {
+                        String.format(Locale.CHINA, "%d KB/s", (bytesPerSec / 1024.0).toLong())
+                    }
+                }
             }
             delay(1000)
         }
@@ -210,6 +270,12 @@ fun NativeLiveBrowseScreen(
         }
         exoPlayer.addListener(listener)
         onDispose {
+            if (isLandscapeFullscreen) {
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                activity?.window?.let { win ->
+                    WindowCompat.getInsetsController(win, win.decorView).show(WindowInsetsCompat.Type.systemBars())
+                }
+            }
             exoPlayer.removeListener(listener)
             exoPlayer.release()
         }
@@ -222,8 +288,17 @@ fun NativeLiveBrowseScreen(
         val url = stream?.optString("url")?.ifBlank { stream.optString("playUrl") }?.trim().orEmpty()
         if (url.isNotBlank()) {
             try {
+                val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                    .setAllowCrossProtocolRedirects(true)
+                    .setTransferListener(bandwidthMeter)
+                val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(context, httpFactory)
                 val mediaItem = MediaItem.fromUri(url)
-                exoPlayer.setMediaItem(mediaItem)
+                val mediaSource = if (url.contains(".m3u8", ignoreCase = true) || url.contains("hls", ignoreCase = true)) {
+                    androidx.media3.exoplayer.hls.HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+                } else {
+                    androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+                }
+                exoPlayer.setMediaSource(mediaSource)
                 exoPlayer.prepare()
                 exoPlayer.playWhenReady = true
                 isPlayingChannel = true
@@ -285,8 +360,10 @@ fun NativeLiveBrowseScreen(
     }
 
     // Back handler
-    BackHandler(enabled = isImmersive || isPlayingChannel) {
-        if (isImmersive) {
+    BackHandler(enabled = isLandscapeFullscreen || isImmersive || isPlayingChannel) {
+        if (isLandscapeFullscreen) {
+            exitLandscapeFullscreen()
+        } else if (isImmersive) {
             isImmersive = false
         } else if (isPlayingChannel) {
             isPlayingChannel = false
@@ -348,6 +425,34 @@ fun NativeLiveBrowseScreen(
         val mins = (watchedSeconds % 3600) / 60
         val secs = watchedSeconds % 60
         String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, mins, secs)
+    }
+
+    // -------------------------------------------------------------
+    // SCREEN VARIANT 0: Landscape Fullscreen Mode (with gestures)
+    // -------------------------------------------------------------
+    if (isLandscapeFullscreen) {
+        LiveLandscapeFullscreenPlayer(
+            channel = activeChannel,
+            activeStreams = activeStreams,
+            activeStreamIndex = activeStreamIndex,
+            exoPlayer = exoPlayer,
+            isBuffering = isBuffering,
+            playbackError = playbackError,
+            networkSpeedText = networkSpeedText,
+            currentTimeString = currentTimeString,
+            currentAspectRatioMode = currentAspectRatioMode,
+            aspectRatioName = aspectRatioName,
+            onToggleAspectRatio = ::toggleAspectRatio,
+            onSelectStreamIndex = { idx ->
+                activeStreamIndex = idx
+                playCurrentStream()
+            },
+            onPrevChannel = ::playPreviousChannel,
+            onNextChannel = ::playNextChannel,
+            onExitFullscreen = ::exitLandscapeFullscreen,
+            modifier = modifier
+        )
+        return
     }
 
     // -------------------------------------------------------------
@@ -568,6 +673,19 @@ fun NativeLiveBrowseScreen(
                             Icon(Icons.Default.NorthEast, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
                             Spacer(modifier = Modifier.width(2.dp))
                             Text("退出", color = Color.White, fontSize = 11.sp)
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0x992B221B),
+                        border = BorderStroke(1.dp, Color(0xFF4B3B2E)),
+                        modifier = Modifier.clickable { enterLandscapeFullscreen() }
+                    ) {
+                        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Fullscreen, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("全屏", color = Color.White, fontSize = 11.sp)
                         }
                     }
 
@@ -948,8 +1066,14 @@ fun NativeLiveBrowseScreen(
                                         }
                                     }
                                     Column {
-                                        Text("网络速度 (估算)", fontSize = 11.sp, color = colors.textSecondary)
-                                        Text("暂不可用", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                                        Text("网络速度 (实时)", fontSize = 11.sp, color = colors.textSecondary)
+                                        Text(
+                                            if (isPlayingChannel) networkSpeedText else "未连接",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isPlayingChannel && networkSpeedText != "测速中…") Color(0xFF10B981) else colors.textPrimary,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
                                 }
                             }
@@ -1058,7 +1182,7 @@ fun NativeLiveBrowseScreen(
                         border = BorderStroke(1.dp, colors.border),
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { isImmersive = true }
+                            .clickable { enterLandscapeFullscreen() }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -1445,7 +1569,12 @@ fun NativeLiveBrowseScreen(
                                 shape = RoundedCornerShape(6.dp),
                                 color = Color.Black.copy(alpha = 0.5f),
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                modifier = Modifier.clickable { isImmersive = true }
+                                modifier = Modifier.clickable {
+                                    if (activeChannel == null && channels.isNotEmpty()) {
+                                        selectChannelToPlay(channels.first())
+                                    }
+                                    enterLandscapeFullscreen()
+                                }
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
