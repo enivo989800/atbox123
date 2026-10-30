@@ -88,6 +88,7 @@ fun NativeLiveBrowseScreen(
     var showLiveMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showCustomUrl by remember { mutableStateOf(false) }
+    var showSourceSwitchDialog by remember { mutableStateOf(false) }
     var customUrlInput by remember { mutableStateOf("") }
 
     // Channel selection and player states
@@ -296,14 +297,33 @@ fun NativeLiveBrowseScreen(
     val channels = state.channels
     var selectedCategoryTab by remember { mutableStateOf("全部") }
     val categories = remember(channels) {
-        val list = channels.map { it.optString("category").trim().ifBlank { "央视" } }.distinct()
-        if (list.isEmpty()) listOf("央视", "卫视", "全部")
-        else listOf("央视", "卫视", "全部")
+        val rawList = channels.map { it.optString("category").trim().ifBlank { "默认" } }.distinct()
+        buildList {
+            val cctv = rawList.firstOrNull { it.contains("央视") }
+            if (cctv != null) add(cctv)
+            val weishi = rawList.firstOrNull { it.contains("卫视") && !it.contains("央视") }
+            if (weishi != null) add(weishi)
+            rawList.forEach { cat ->
+                if (cat != cctv && cat != weishi && cat.isNotBlank()) add(cat)
+            }
+            add("全部")
+        }
+    }
+
+    LaunchedEffect(categories) {
+        if (selectedCategoryTab !in categories && categories.isNotEmpty()) {
+            selectedCategoryTab = "全部"
+        }
     }
 
     val filteredChannels = remember(channels, selectedCategoryTab) {
-        if (selectedCategoryTab == "全部") channels
-        else channels.filter { it.optString("category").trim() == selectedCategoryTab }
+        if (selectedCategoryTab == "全部" || selectedCategoryTab.isBlank()) channels
+        else channels.filter { ch ->
+            val cat = ch.optString("category").trim()
+            cat == selectedCategoryTab ||
+                (selectedCategoryTab.contains("央视") && cat.contains("央视")) ||
+                (selectedCategoryTab.contains("卫视") && cat.contains("卫视"))
+        }
     }
 
     val currentChannelIndex = remember(channels, activeChannel) {
@@ -1232,12 +1252,17 @@ fun NativeLiveBrowseScreen(
                     }
                 }
 
-                // Middle box: 📺 电视直播 / 选择频道开始观看
+                // Middle box: 📺 当前直播源 / 点击切换源
+                val currentSource = state.sources.firstOrNull { it.sourceId == state.selectedSourceId }
+                val currentSourceName = currentSource?.name ?: "电视直播"
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = colors.surfaceRaised,
                     border = BorderStroke(1.dp, colors.border),
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                        .clickable { showSourceSwitchDialog = true }
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -1246,8 +1271,8 @@ fun NativeLiveBrowseScreen(
                     ) {
                         Icon(Icons.Default.Tv, contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
                         Column {
-                            Text("电视直播", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
-                            Text("选择频道开始观看", fontSize = 10.sp, color = colors.textSecondary)
+                            Text(currentSourceName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(if (state.channelsLoading) "正在加载频道..." else "点击切换直播源", fontSize = 10.sp, color = colors.textSecondary)
                         }
                     }
                 }
@@ -1300,6 +1325,16 @@ fun NativeLiveBrowseScreen(
         }
 
         DropdownMenu(expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
+            DropdownMenuItem(
+                text = { Text("切换直播源") },
+                leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
+                onClick = { showMoreMenu = false; showSourceSwitchDialog = true }
+            )
+            DropdownMenuItem(
+                text = { Text("刷新频道列表") },
+                leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null) },
+                onClick = { showMoreMenu = false; vm.refreshChannels() }
+            )
             DropdownMenuItem(
                 text = { Text("自定义直播地址") },
                 leadingIcon = { Icon(Icons.Default.Link, contentDescription = null) },
@@ -1641,62 +1676,39 @@ fun NativeLiveBrowseScreen(
                         }
                     }
 
-                    // Chips row: [ 📺 央视 ]  [ ⭐ 卫视 ]  [ ⊙ 全部 6 ]
-                    Row(
+                    // Category Chips (Image 3 style)
+                    LazyRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // 央视
-                        val isCctv = selectedCategoryTab == "央视"
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isCctv) colors.accent else colors.card,
-                            border = BorderStroke(1.dp, if (isCctv) colors.accent else colors.border),
-                            modifier = Modifier.clickable { selectedCategoryTab = "央视" }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.Tv, contentDescription = null, tint = if (isCctv) Color.White else colors.textPrimary, modifier = Modifier.size(16.dp))
-                                Text("央视", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isCctv) Color.White else colors.textPrimary)
+                        items(categories) { cat ->
+                            val isSelected = selectedCategoryTab == cat
+                            val icon = when {
+                                cat.contains("央视") -> Icons.Default.Tv
+                                cat.contains("卫视") -> Icons.Default.StarOutline
+                                cat == "全部" -> null
+                                else -> Icons.Default.Radio
                             }
-                        }
+                            val label = if (cat == "全部") "全部 ${channels.size}" else cat
 
-                        // 卫视
-                        val isWeishi = selectedCategoryTab == "卫视"
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isWeishi) colors.accent else colors.card,
-                            border = BorderStroke(1.dp, if (isWeishi) colors.accent else colors.border),
-                            modifier = Modifier.clickable { selectedCategoryTab = "卫视" }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) colors.accent else colors.card,
+                                border = BorderStroke(1.dp, if (isSelected) colors.accent else colors.border),
+                                modifier = Modifier.clickable { selectedCategoryTab = cat }
                             ) {
-                                Icon(Icons.Default.StarOutline, contentDescription = null, tint = if (isWeishi) Color.White else colors.textPrimary, modifier = Modifier.size(16.dp))
-                                Text("卫视", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isWeishi) Color.White else colors.textPrimary)
-                            }
-                        }
-
-                        // 全部
-                        val isAll = selectedCategoryTab == "全部"
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isAll) colors.accent else colors.card,
-                            border = BorderStroke(1.dp, if (isAll) colors.accent else colors.border),
-                            modifier = Modifier.clickable { selectedCategoryTab = "全部" }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).border(1.dp, if (isAll) Color.White else colors.textPrimary, CircleShape))
-                                Text("全部 ${channels.size}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isAll) Color.White else colors.textPrimary)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (icon != null) {
+                                        Icon(icon, contentDescription = null, tint = if (isSelected) Color.White else colors.textPrimary, modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).border(1.dp, if (isSelected) Color.White else colors.textPrimary, CircleShape))
+                                    }
+                                    Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else colors.textPrimary)
+                                }
                             }
                         }
                     }
@@ -1727,33 +1739,50 @@ fun NativeLiveBrowseScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            // Channel Logo White Badge: CCTV 1 + 中央电视台 (as in Image 3)
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color.White,
-                                modifier = Modifier.width(68.dp).height(42.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                            // Channel Logo Badge: Remote Logo Image or Image 3 Style Badge
+                            val logoUrl = ch.optString("logo")
+                            if (logoUrl.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White,
+                                    modifier = Modifier.width(68.dp).height(42.dp)
                                 ) {
-                                    val name = ch.optString("name")
-                                    val shortCode = if (name.contains("CCTV-")) {
-                                        name.substringBefore(" ").replace("-", " ")
-                                    } else name.take(4)
+                                    AsyncImage(
+                                        model = logoUrl,
+                                        contentDescription = ch.optString("name"),
+                                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                            } else {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White,
+                                    modifier = Modifier.width(68.dp).height(42.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        val name = ch.optString("name")
+                                        val shortCode = if (name.contains("CCTV-", ignoreCase = true) || name.contains("CCTV", ignoreCase = true)) {
+                                            name.substringBefore(" ").replace("-", " ")
+                                        } else name.take(4)
 
-                                    Text(
-                                        text = shortCode,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = if (shortCode.contains("CCTV")) Color(0xFFE60012) else Color(0xFF1E293B)
-                                    )
-                                    Text(
-                                        text = if (ch.optString("category") == "央视") "中央电视台" else "卫视频道",
-                                        fontSize = 8.sp,
-                                        color = Color.Gray
-                                    )
+                                        Text(
+                                            text = shortCode,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (shortCode.contains("CCTV", ignoreCase = true)) Color(0xFFE60012) else Color(0xFF1E293B)
+                                        )
+                                        val catText = ch.optString("category").ifBlank { "电视直播" }
+                                        Text(
+                                            text = if (catText.contains("央视")) "中央电视台" else if (catText.contains("卫视")) "卫视频道" else catText.take(5),
+                                            fontSize = 8.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
                                 }
                             }
 
@@ -1894,6 +1923,78 @@ fun NativeLiveBrowseScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showLineSelectorDialog = false }) { Text("关闭", color = colors.accent) }
+            }
+        )
+    }
+
+    // Source Switcher Dialog
+    if (showSourceSwitchDialog) {
+        AlertDialog(
+            onDismissRequest = { showSourceSwitchDialog = false },
+            title = {
+                Text("切换直播源", fontWeight = FontWeight.Bold, color = colors.textPrimary)
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(state.sources) { src ->
+                        val isSelected = src.sourceId == state.selectedSourceId
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) colors.accent.copy(alpha = 0.15f) else colors.surfaceRaised,
+                            border = BorderStroke(1.dp, if (isSelected) colors.accent else colors.border),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    vm.selectSource(src.sourceId)
+                                    showSourceSwitchDialog = false
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = src.name,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) colors.accent else colors.textPrimary,
+                                            fontSize = 14.sp
+                                        )
+                                        if (src.sourceId == "builtin_live") {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = colors.accent.copy(alpha = 0.2f)
+                                            ) {
+                                                Text("内置", fontSize = 9.sp, color = colors.accent, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = if (src.sourceId == "builtin_live") "内置 6 个高清频道" else if (src.content.isNotBlank()) "已导入配置文本 (${src.liveMode.ifBlank { "TV1 直播" }})" else src.sourceRef.take(40),
+                                        fontSize = 11.sp,
+                                        color = colors.textMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, contentDescription = "当前选择", tint = colors.accent, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSourceSwitchDialog = false }) {
+                    Text("关闭", color = colors.accent)
+                }
             }
         )
     }

@@ -12,9 +12,13 @@ data class NativeContentSource(
     val ext: String = "",
     val jar: String = "",
     val type: Int = 0,
+    val sourceRef: String = "",
+    val content: String = "",
+    val liveMode: String = "",
     val rawJson: String = "{}"
 ) {
-    val sourceRef: String get() = api.ifBlank { ext }
+    val displayRef: String get() = sourceRef.ifBlank { api.ifBlank { ext } }
+
     fun toJson(): JSONObject = try {
         JSONObject(rawJson)
             .put("sourceId", sourceId)
@@ -26,6 +30,9 @@ data class NativeContentSource(
             .put("ext", ext)
             .put("jar", jar)
             .put("type", type)
+            .put("sourceRef", sourceRef)
+            .put("content", content)
+            .put("liveMode", liveMode)
     } catch (_: Exception) {
         JSONObject()
             .put("sourceId", sourceId)
@@ -33,6 +40,13 @@ data class NativeContentSource(
             .put("sourceType", sourceType)
             .put("enabled", enabled)
             .put("order", order)
+            .put("api", api)
+            .put("ext", ext)
+            .put("jar", jar)
+            .put("type", type)
+            .put("sourceRef", sourceRef)
+            .put("content", content)
+            .put("liveMode", liveMode)
     }
 
     companion object {
@@ -43,16 +57,28 @@ data class NativeContentSource(
             val sourceType = json.optString("sourceType").ifBlank {
                 if (json.has("channels") || json.optString("type") == "live") "live" else "movie"
             }
+            val api = json.optString("api")
+            val ext = json.optString("ext")
+            val rawRef = json.optString("sourceRef")
+                .ifBlank { json.optString("url") }
+                .ifBlank { api }
+                .ifBlank { ext }
+            val content = json.optString("content")
+            val liveMode = json.optString("liveMode")
+
             return NativeContentSource(
                 sourceId = sourceId,
                 name = name,
                 sourceType = sourceType,
                 enabled = json.optBoolean("enabled", true),
                 order = json.optInt("order", order),
-                api = json.optString("api"),
-                ext = json.optString("ext"),
+                api = api,
+                ext = ext,
                 jar = json.optString("jar"),
                 type = json.optInt("type", 0),
+                sourceRef = rawRef,
+                content = content,
+                liveMode = liveMode,
                 rawJson = json.toString()
             )
         }

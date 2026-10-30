@@ -415,19 +415,33 @@ fun NativeSourceManagementScreen(
         }
 
         // Add Source Dialog
+        // Add Source Dialog
         if (showAddDialog) {
             AddSourceDialog(
                 onDismiss = { showAddDialog = false },
-                onAdd = { type, name, ref ->
+                onAdd = { type, name, ref, liveMode ->
                     scope.launch(Dispatchers.IO) {
                         val repo = app.awaitServices().contentSourceRepository
+                        val isContent = ref.contains("#genre#", ignoreCase = true) ||
+                            ref.contains("\n") ||
+                            ref.startsWith("#EXTM3U", ignoreCase = true) ||
+                            ref.startsWith("{") ||
+                            ref.startsWith("[")
                         val obj = JSONObject()
                             .put("sourceId", "src_${System.currentTimeMillis()}")
                             .put("name", name)
                             .put("sourceType", type)
                             .put("sourceRef", ref)
+                            .put("content", if (isContent) ref else "")
+                            .put("liveMode", liveMode)
                             .put("enabled", true)
-                        repo.add(NativeContentSource.fromJson(obj))
+                        val newSource = NativeContentSource.fromJson(obj)
+                        repo.add(newSource)
+                        if (type == "live") {
+                            val userRepo = app.awaitServices().userDataRepository
+                            val settings = userRepo.getSettings()
+                            userRepo.saveSettings(settings.put("defaultLiveSource", newSource.sourceId))
+                        }
                         withContext(Dispatchers.Main) {
                             showAddDialog = false
                             refresh()
@@ -446,27 +460,52 @@ fun NativeSourceManagementScreen(
                     scope.launch(Dispatchers.IO) {
                         try {
                             val repo = app.awaitServices().contentSourceRepository
-                            val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
-                            var count = 0
-                            lines.forEach { line ->
-                                if (line.contains("http://") || line.contains("https://")) {
-                                    val name = if (line.contains(",")) line.substringBefore(",") else "导入源 ${count + 1}"
-                                    val url = if (line.contains(",")) line.substringAfter(",").trim() else line
-                                    val type = if (url.endsWith(".m3u") || url.endsWith(".m3u8") || url.contains("live")) "live" else "movie"
-                                    val obj = JSONObject()
-                                        .put("sourceId", "import_${System.currentTimeMillis()}_$count")
-                                        .put("name", name)
-                                        .put("sourceType", type)
-                                        .put("sourceRef", url)
-                                        .put("enabled", true)
-                                    repo.add(NativeContentSource.fromJson(obj))
-                                    count++
+                            val trimmed = text.trim()
+                            if (trimmed.contains("#genre#", ignoreCase = true) || trimmed.startsWith("#EXTM3U", ignoreCase = true)) {
+                                val mode = if (trimmed.contains("#genre#", ignoreCase = true)) "TV1 专用直播 (#genre#)" else "标准 M3U 直播"
+                                val obj = JSONObject()
+                                    .put("sourceId", "import_${System.currentTimeMillis()}")
+                                    .put("name", "导入直播源")
+                                    .put("sourceType", "live")
+                                    .put("sourceRef", "本地配置内容")
+                                    .put("content", trimmed)
+                                    .put("liveMode", mode)
+                                    .put("enabled", true)
+                                val newSrc = NativeContentSource.fromJson(obj)
+                                repo.add(newSrc)
+                                val userRepo = app.awaitServices().userDataRepository
+                                val settings = userRepo.getSettings()
+                                userRepo.saveSettings(settings.put("defaultLiveSource", newSrc.sourceId))
+                                withContext(Dispatchers.Main) {
+                                    showImportDialog = false
+                                    refresh()
+                                    noticeMessage = "成功导入直播源"
                                 }
-                            }
-                            withContext(Dispatchers.Main) {
-                                showImportDialog = false
-                                refresh()
-                                noticeMessage = "成功导入 $count 个内容源"
+                            } else {
+                                val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
+                                var count = 0
+                                lines.forEach { line ->
+                                    if (line.contains("http://") || line.contains("https://")) {
+                                        val name = if (line.contains(",")) line.substringBefore(",") else "导入源 ${count + 1}"
+                                        val url = if (line.contains(",")) line.substringAfter(",").trim() else line
+                                        val type = if (url.endsWith(".m3u") || url.endsWith(".m3u8") || url.contains("live") || url.endsWith(".txt")) "live" else "movie"
+                                        val mode = if (url.endsWith(".txt")) "TV1 专用直播 (#genre#)" else "标准 M3U 直播"
+                                        val obj = JSONObject()
+                                            .put("sourceId", "import_${System.currentTimeMillis()}_$count")
+                                            .put("name", name)
+                                            .put("sourceType", type)
+                                            .put("sourceRef", url)
+                                            .put("liveMode", mode)
+                                            .put("enabled", true)
+                                        repo.add(NativeContentSource.fromJson(obj))
+                                        count++
+                                    }
+                                }
+                                withContext(Dispatchers.Main) {
+                                    showImportDialog = false
+                                    refresh()
+                                    noticeMessage = "成功导入 $count 个内容源"
+                                }
                             }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) {
@@ -537,8 +576,9 @@ private fun FilterTabButton(
 @Composable
 private fun AddSourceDialog(
     onDismiss: () -> Unit,
-    onAdd: (type: String, name: String, ref: String) -> Unit
+    onAdd: (type: String, name: String, ref: String, liveMode: String) -> Unit
 ) {
+    val context = LocalContext.current
     var type by remember { mutableStateOf("live") }
     var liveMode by remember { mutableStateOf("TV1 专用直播 (#genre#)") }
     var name by remember { mutableStateOf("") }
@@ -546,6 +586,30 @@ private fun AddSourceDialog(
     var typeDropdownOpen by remember { mutableStateOf(false) }
     var modeDropdownOpen by remember { mutableStateOf(false) }
     val colors = AppTheme.colors
+
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    val content = stream.bufferedReader().readText()
+                    ref = content
+                    val fileName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: ""
+                    if (name.isBlank() && fileName.isNotBlank()) {
+                        name = fileName
+                    }
+                    if (content.contains("#genre#", ignoreCase = true)) {
+                        type = "live"
+                        liveMode = "TV1 专用直播 (#genre#)"
+                    } else if (content.startsWith("#EXTM3U", ignoreCase = true)) {
+                        type = "live"
+                        liveMode = "标准 M3U 直播"
+                    }
+                }
+            }
+        }
+    }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -679,8 +743,7 @@ private fun AddSourceDialog(
                         color = Color.White,
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD6C8B4)),
                         modifier = Modifier.clickable {
-                            ref = "https://raw.githubusercontent.com/live.m3u"
-                            if (name.isBlank()) name = "本地导入直播源"
+                            filePickerLauncher.launch("*/*")
                         }
                     ) {
                         Row(
@@ -801,7 +864,7 @@ private fun AddSourceDialog(
                             .clickable {
                                 if (ref.isNotBlank()) {
                                     val finalName = name.ifBlank { if (type == "live") "自定义直播源" else "自定义影视源" }
-                                    onAdd(type, finalName.trim(), ref.trim())
+                                    onAdd(type, finalName.trim(), ref.trim(), liveMode)
                                 }
                             }
                     ) {
